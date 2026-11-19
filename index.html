@@ -2150,7 +2150,7 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
   // ---------- キーボードだけで遊ぶ ----------
   // ↑↓←→：画面上の近いボタンへ移動　Enter／Space：決定　Backspace／Delete：選んだわくを空にする　Esc：やめる
   // 閉じた <details> の中身は、位置があっても見えていないので除く（自分の summary は別）
-  const inClosed = el => { for (let d = el.closest('details'); d; d = d.parentElement && d.parentElement.closest('details')) { if (!d.open && !(el.tagName === 'SUMMARY' && el.parentElement === d)) return true; } return false; };
+  const inClosed = el => { for (let d = el.closest('details'); d; d = d.parentElement && d.parentElement.closest('details')) { if (!d.open && !(el.closest('summary') && el.closest('summary').parentElement === d)) return true; } return false; };
   const shown = el => { const b = el.getBoundingClientRect(); return b.width > 0 && b.height > 0 && !el.closest('[hidden]') && !inClosed(el); };
   const listOpen = () => !$('listPage').hidden;
   const navItems = () => [...document.querySelectorAll(listOpen() ? '#listPage button:not([disabled]), #listPage summary' : '.side button:not([disabled])')].filter(shown);
