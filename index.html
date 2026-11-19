@@ -1,0 +1,2286 @@
+﻿<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>博士の試薬棚</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&family=IBM+Plex+Mono:wght@500;600&family=Zen+Kaku+Gothic+New:wght@400;700&display=swap">
+<style>
+/* Layout: pixel-art lab stage (256x128 canvas) beside one working panel (menu / pick / label / review).
+   Deliberately single-theme (night lab), like the series' other games. */
+:root {
+  --page: #f5edd6;
+  --panel: #fffaee;
+  --panel-2: #f3e8cf;
+  --sel: #fbe3a6;
+  --line: #c8b088;
+  --gold: #e0ac3e;
+  --head: #8a5a14;
+  --focus: #2f8fd8;
+  --paper: #fffdf6;
+  --ink: #2a1d14;
+  --text: #3a2b1e;
+  --muted: #7d6a52;
+  --accent: #2f7f74;
+  --ok: #8fc06a;
+  --ok-ink: #16240c;
+  --ng: #e0505a;
+  --off: #ddd0b4;
+  --veil: rgba(42, 29, 20, 0.66);
+  --veil-text: #fff8e6;
+  --f-pixel: "DotGothic16", "Hiragino Kaku Gothic ProN", "Yu Gothic", monospace;
+  --f-body: "Zen Kaku Gothic New", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+  --f-chem: "IBM Plex Mono", "Courier New", monospace;
+  --px: 3px;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; background: var(--page); color: var(--text); }
+body { font-family: var(--f-body); line-height: 1.7; font-size: 15px; }
+sub { font-size: .7em; line-height: 0; }
+.wrap {
+  max-width: 780px; margin: 0 auto; padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 18px;
+}
+.px { box-shadow: 0 calc(-1 * var(--px)) 0 0 var(--c, var(--gold)), 0 var(--px) 0 0 var(--c, var(--gold)), calc(-1 * var(--px)) 0 0 0 var(--c, var(--gold)), var(--px) 0 0 0 var(--c, var(--gold)); }
+
+/* HUD */
+.hud { display: flex; align-items: center; justify-content: space-between; gap: 6px 14px; flex-wrap: wrap; font-family: var(--f-pixel); }
+.hud h1 { margin: 0; font-size: 1.35rem; font-weight: 400; letter-spacing: .08em; color: var(--head); }
+.hud .meta { display: flex; align-items: center; gap: 6px 14px; flex-wrap: wrap; color: var(--muted); }
+.life { display: inline-flex; gap: 2px; font-size: 1.05rem; letter-spacing: 0; }
+.life i { font-style: normal; color: var(--ng); }
+.life i.off { color: var(--off); }
+.life.hurt { animation: hurt .5s steps(2) 1; }
+@keyframes hurt { 25%, 75% { transform: translateX(-3px); } 50% { transform: translateX(3px); } }
+
+/* Stage */
+.stage { position: relative; aspect-ratio: 2 / 1; margin: var(--px); --c: var(--gold); overflow: hidden; background: var(--ink); }
+.stage canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; cursor: default; }
+.stage canvas.pickable { cursor: pointer; }
+.talk { position: absolute; bottom: 55%; max-width: 64%; font-size: clamp(12px, 2.3vw, 17px); }
+.talk.left { left: 4%; }
+.talk.right { right: 4%; }
+.bubble { background: var(--paper); color: var(--ink); --c: var(--ink); padding: 6px 12px 8px; font-family: var(--f-pixel); line-height: 1.55; }
+.bubble .who { display: block; font-size: .72em; letter-spacing: .15em; color: #2f6f68; }
+.bubble b { font-weight: 400; color: #a8325c; }
+.overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 16px;
+  text-align: center; background: var(--veil); color: var(--veil-text); font-family: var(--f-pixel); }
+.overlay .big { font-size: clamp(1.4rem, 6vw, 2.4rem); color: var(--gold); letter-spacing: .1em; margin: 0; line-height: 1.3; }
+.overlay p { margin: 0; max-width: 32em; font-size: clamp(12px, 2.3vw, 15px); }
+.overlay .rank b { color: var(--gold); font-weight: 400; font-size: 1.25em; }
+
+/* Buttons & panels */
+.btn { font-family: var(--f-pixel); font-size: 1rem; cursor: pointer; border: 0; background: var(--gold); color: var(--ink); --c: var(--ink);
+  padding: 8px 22px; margin: var(--px); touch-action: manipulation; }
+.btn.ghost { background: var(--panel-2); color: var(--text); --c: var(--line); }
+.btn.small { font-size: .85rem; padding: 4px 12px; }
+.btn:hover { filter: brightness(1.08); }
+.btn:active { transform: translateY(2px); }
+.btn:disabled { opacity: .45; cursor: default; filter: none; transform: none; }
+button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
+.panel { background: var(--panel); --c: var(--line); padding: 16px 18px 18px; margin: var(--px); display: grid; gap: 14px; align-content: start; }
+.panel h2 { margin: 0; font-family: var(--f-pixel); font-weight: 400; font-size: 1rem; color: var(--head); letter-spacing: .08em; }
+.lead { margin: 0; font-family: var(--f-pixel); font-size: clamp(15px, 2.5vw, 18px); line-height: 1.6; }
+.lead b { color: var(--accent); font-weight: 400; }
+.note { color: var(--muted); font-size: .82rem; margin: 0; }
+.opts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.opt { display: grid; gap: 2px; text-align: left; cursor: pointer; border: 0; min-width: 0; background: var(--panel-2); color: var(--text); --c: var(--line);
+  padding: 9px 12px; margin: var(--px); font-family: var(--f-body); }
+.opt b { font-family: var(--f-pixel); font-weight: 400; font-size: 1.02rem; }
+.opt small { color: var(--muted); font-size: .8rem; line-height: 1.5; }
+.opt[aria-pressed="true"] { --c: var(--gold); background: var(--sel); }
+.opt[aria-pressed="true"] b { color: var(--head); }
+.row-end { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+
+/* pick a bottle */
+.bottles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.bottle { display: flex; align-items: center; gap: 10px; text-align: left; cursor: pointer; border: 0; min-width: 0; background: var(--panel-2); color: var(--text);
+  --c: var(--line); padding: 10px 12px; margin: var(--px); }
+.bottle .num { flex: none; width: 1.6em; height: 1.6em; display: grid; place-items: center; font-family: var(--f-pixel); background: var(--line); color: var(--paper); }
+.bottle .f { font-family: var(--f-pixel); font-size: 1.25rem; line-height: 1.2; display: block; }
+.bottle small { display: block; color: var(--muted); font-size: .76rem; line-height: 1.4; }
+.bottle:hover:not(:disabled) { --c: var(--gold); }
+.bottle:disabled { cursor: default; opacity: .5; }
+.bottle.correct { background: var(--ok); color: var(--ok-ink); --c: var(--ok); opacity: 1; }
+.bottle.correct small { color: var(--ok-ink); }
+.bottle.wrong { background: var(--ng); color: var(--ink); --c: var(--ng); opacity: 1; }
+.bottle.wrong small { color: var(--ink); }
+
+/* label */
+.label { background: var(--paper); color: var(--ink); --c: var(--ink); margin: var(--px); padding: 10px 14px 12px; display: grid; gap: 6px; }
+.label .lh { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; border-bottom: 2px solid var(--ink); padding-bottom: 4px; flex-wrap: wrap; }
+.label .nm { font-family: var(--f-pixel); font-size: 1.15rem; }
+.label .fm { font-family: var(--f-pixel); font-size: 1.15rem; color: #2f6f68; }
+.label .cap { font-family: var(--f-pixel); font-size: .75rem; letter-spacing: .15em; color: #7a6a5a; }
+.props { display: grid; gap: 8px; }
+.prop { display: flex; gap: 10px; align-items: flex-start; text-align: left; cursor: pointer; border: 0; background: var(--panel-2); color: var(--text); --c: var(--line);
+  padding: 8px 12px; margin: var(--px); font-family: var(--f-body); font-size: .95rem; line-height: 1.55; }
+.prop .box { flex: none; width: 1.2em; height: 1.2em; margin-top: .15em; background: var(--paper); box-shadow: inset 0 0 0 2px var(--line); display: grid; place-items: center;
+  font-family: var(--f-pixel); font-size: .9rem; line-height: 1; }
+.prop[aria-pressed="true"] { --c: var(--gold); background: var(--sel); }
+.prop[aria-pressed="true"] .box { background: var(--gold); color: var(--ink); box-shadow: none; }
+.prop[aria-pressed="true"] .box::after { content: "✓"; }
+.prop:disabled { cursor: default; }
+.prop.hit { background: var(--ok); color: var(--ok-ink); --c: var(--ok); }
+.prop.miss { background: var(--ng); color: var(--ink); --c: var(--ng); }
+.prop.lost { --c: var(--ok); }
+.prop .why { display: block; font-size: .78rem; font-family: var(--f-pixel); }
+.feedback { display: grid; gap: 8px; border-top: 2px dashed var(--line); padding-top: 12px; }
+.verdict { font-family: var(--f-pixel); font-size: 1.15rem; margin: 0; }
+.verdict.ok { color: var(--ok); }
+.verdict.ng { color: var(--ng); }
+.feedback p { margin: 0; }
+
+/* experiment: reaction equation with tile slots */
+.eq { background: var(--paper); color: var(--ink); --c: var(--ink); margin: var(--px); padding: 10px 12px; font-family: var(--f-pixel); font-size: clamp(1.05rem, 2.6vw, 1.3rem);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 6px; line-height: 2.1; min-width: 0; }
+.eq .fx { white-space: nowrap; }
+.slot { font: inherit; color: var(--ink); min-width: 2.4em; height: 1.8em; padding: 0 6px; line-height: 1.6em; cursor: pointer; vertical-align: middle;
+  background: #fff; border: 2px dashed var(--line); text-align: center; white-space: nowrap; touch-action: manipulation; }
+.slot.coef { min-width: 1.9em; border: 0; background: transparent; padding: 0 2px; }
+.slot.coef::before { content: "［"; } .slot.coef::after { content: "］"; }
+.slot.coef .v { display: inline-block; min-width: 1em; }
+.slot.coef.on .v { background: var(--sel); }
+.slot.coef.ok, .slot.coef.ng { border: 0; }
+.slot.coef.ok .v { background: #e3f2d6; } .slot.coef.ng .v { background: #fbe0e0; }
+.slot.on { border: 2px solid var(--gold); background: var(--sel); }
+.slot.ok { border: 2px solid var(--ok); background: #e3f2d6; }
+.slot.ng { border: 2px solid var(--ng); background: #fbe0e0; }
+.slot:disabled { cursor: default; }
+.slot:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.chem { font-family: var(--f-chem); font-weight: 500; letter-spacing: 0; }
+.tray { display: grid; gap: 8px; }
+.tgroup { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.tgroup .tl { font-family: var(--f-pixel); font-size: .8rem; color: var(--muted); width: 3.6em; flex: none; }
+.tile.num { min-width: 2.4em; }
+.eqmsg { margin: 0; min-height: 1.4em; font-size: .85rem; color: var(--ng); font-family: var(--f-pixel); }
+.tile { font-family: var(--f-pixel); font-size: 1.15rem; color: var(--text); background: var(--panel-2); --c: var(--line); border: 0; cursor: pointer;
+  min-width: 3em; padding: 6px 12px; margin: var(--px); touch-action: manipulation; }
+.tile:hover:not(:disabled) { --c: var(--gold); }
+.tile:active { transform: translateY(2px); }
+.tile.used { opacity: .3; }
+.tile { max-width: 100%; }
+.tile.long { font-size: .95rem; padding: 6px 9px; }
+.tile.xlong { font-size: .8rem; padding: 7px 7px; }
+.eq .slot .chem.xlong { font-size: .8em; }
+/* ドラッグ中に重ねたわく：選択中（黄）や入力ずみでも、青で上書き先がわかる */
+.eq .slot.drop { border: 2px solid var(--focus); background: #d9ecff; box-shadow: 0 0 0 3px rgba(47, 143, 216, .35); color: #1d5f9a; }
+.eq .slot.coef.drop { border: 0; background: transparent; box-shadow: none; }
+.eq .slot.coef.drop .v { background: #d9ecff; outline: 2px solid var(--focus); color: #1d5f9a; }
+.eq .slot.drop.over-filled { border-style: dashed; }
+.slot:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.keys-help { margin: 0; color: var(--muted); font-size: .78rem; }
+.keys-help kbd { font-family: var(--f-pixel); font-size: .75rem; color: var(--text); background: var(--panel-2); padding: 0 5px; box-shadow: inset 0 0 0 1px var(--line); }
+@media (hover: none) { .keys-help { display: none; } }
+.tile { touch-action: none; user-select: none; -webkit-user-select: none; }
+.drag-clone { position: fixed; z-index: 50; pointer-events: none; transform: translate(-50%, -150%) scale(1.1); opacity: .95; box-shadow: 0 6px 12px rgba(42, 29, 20, .25); }
+.tile:disabled { cursor: default; }
+.ans { font-family: var(--f-pixel); font-size: 1.05rem; margin: 0; }
+/* B案：結果のまとめ */
+.sum { display: grid; gap: 6px; }
+.sum h3 { margin: 0; font-family: var(--f-pixel); font-weight: 400; font-size: .85rem; color: var(--muted); }
+.sum ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.sum li { padding: 4px 10px; font-size: .92rem; line-height: 1.5; background: var(--panel-2); border-left: 4px solid var(--line); }
+.sum li.hit { border-left-color: var(--ok); }
+.sum li.lost { border-left-color: var(--gold); }
+.sum li.miss { border-left-color: var(--ng); }
+.sum li .mk { font-family: var(--f-pixel); margin-right: 6px; }
+.sum li.hit .mk { color: #4f8a2a; } .sum li.lost .mk { color: var(--head); } .sum li.miss .mk { color: var(--ng); }
+.sum li small { display: block; color: var(--muted); font-size: .8rem; }
+.linkbtn { justify-self: start; font-family: var(--f-pixel); font-size: .85rem; color: var(--accent); background: none; border: 0; padding: 2px 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.review { list-style: none; margin: 0; padding: 0; display: grid; }
+.review li { padding: 8px 0; border-bottom: 1px solid var(--line); display: grid; gap: 2px; }
+.review .t { font-family: var(--f-pixel); }
+.review .t .mk { margin-right: 6px; }
+.review .mk.ok { color: var(--ok); }
+.review .mk.ng { color: var(--ng); }
+.review small { color: var(--muted); }
+
+/* PC: stage left, panel right */
+.side { display: contents; }
+@media (min-width: 900px) and (min-height: 540px) {
+  html, body { height: 100%; }
+  .wrap { height: 100%; max-width: 1500px; container-type: size; grid-template-columns: auto auto; justify-content: center; align-content: center; gap: 28px; }
+  .stage-col, .side { --sideW: clamp(350px, 32vw, 460px); --stageW: min(100cqw - var(--sideW) - 28px, 200cqh - 4px); }
+  .stage-col { width: var(--stageW); }
+  .side { width: var(--sideW); height: min(100cqh, calc((var(--stageW) - 6px) / 1.2 + 6px)); display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+  .hud { flex-direction: column; align-items: stretch; gap: 6px; }
+  .side > .panel { flex: 1 0 auto; }
+  .talk { font-size: clamp(13px, 1.4vw, 19px); }
+}
+@media (max-width: 899px) {
+  .stick { position: sticky; bottom: env(safe-area-inset-bottom, 0px); background: var(--panel); padding-block: 8px; z-index: 3; }
+  /* A案：スマホ・タブレットでは、ドット絵を画面の上に固定する（data-sticky="off" で元に戻る） */
+  :root[data-sticky="on"] .stage-col { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 6; background: var(--page); padding-block: 6px 4px; margin-top: -6px; }
+  :root[data-sticky="on"] { scroll-padding-top: calc(50vw + 16px); }
+  :root[data-sticky="on"] body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--page); }
+}
+@media (max-width: 520px) {
+  .talk { max-width: 78%; }
+  .bottles { gap: 10px; }
+  .bottle { padding: 8px 9px; gap: 7px; }
+  .bottle .f { font-size: 1.1rem; }
+}
+
+#numOpts { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+#askOpts, #lifeOpts { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+#askOpts .opt, #lifeOpts .opt { padding: 8px 6px; text-align: center; }
+#numOpts .opt { padding: 8px 6px; text-align: center; }
+.ph { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+/* 付せん（ブックマーク）：黄色い付せんの形のマーク */
+.fu { display: inline-block; width: .74em; height: .98em; margin-right: .35em; vertical-align: -.08em; position: relative;
+  background: var(--fu-off, #d9cfb8); clip-path: polygon(0 0, 100% 0, 100% 72%, 72% 100%, 0 100%); }
+.fu::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 22%; background: rgba(0, 0, 0, .12); }
+.fu.on, [aria-pressed="true"] > .fu, .lp-grp .fu, .opt .fu, #bmListBtn .fu { background: #ffd23f; }
+.star .fu { margin: 0; }
+.bmbtn { font-family: var(--f-pixel); font-size: .85rem; color: var(--muted); background: var(--panel-2); --c: var(--line); border: 0; padding: 3px 10px; margin: var(--px); cursor: pointer; }
+.bmbtn[aria-pressed="true"] { color: var(--head); background: var(--sel); --c: var(--gold); }
+.review .t { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.review .bmbtn { margin-left: auto; padding: 1px 8px; }
+.opt:disabled { opacity: .5; cursor: default; }
+#rangeOpts [data-v="bm"] { grid-column: 1 / -1; }
+/* 物質ノート（コレクション） */
+.nb-prog { display: grid; gap: 6px; background: var(--panel); --c: var(--line); margin: var(--px); padding: 10px 14px; }
+.nb-prog .row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-family: var(--f-pixel); }
+.nb-prog .big { font-size: 1.15rem; color: var(--head); }
+.nb-bar { height: 10px; background: var(--off); position: relative; }
+.nb-bar i { position: absolute; inset: 0 auto 0 0; background: var(--gold); }
+.nb-prog small { color: var(--muted); }
+.lp-locked { padding: 9px 14px; display: flex; align-items: baseline; gap: 4px 12px; font-family: var(--f-pixel); color: var(--muted); background: var(--panel-2); }
+.lp-locked .q { letter-spacing: .15em; }
+.lp-locked small { margin-left: auto; font-size: .78rem; }
+.lp-card > summary .bmbtn { margin: 0; padding: 1px 7px; font-size: .78rem; white-space: nowrap; }
+.lp-card .crown { font-size: 1.05rem; line-height: 1; }
+.lp-card .no { font-family: var(--f-pixel); font-size: .72rem; color: var(--muted); }
+.cert { margin: var(--px); padding: 14px 18px; background: var(--paper); --c: var(--gold); text-align: center; display: grid; gap: 6px; font-family: var(--f-pixel); }
+.cert p { margin: 0; }
+.cert .t { font-size: 1.2rem; color: var(--head); letter-spacing: .08em; }
+.cert .d { color: var(--muted); font-size: .9rem; }
+.cert small { color: var(--muted); }
+.cert.gold { background: linear-gradient(135deg, #fff4c8, #ffe08a); --c: #c8901a; }
+.lp-grp .badge { margin-left: 8px; vertical-align: middle; }
+.badge { font-family: var(--f-pixel); font-size: .74rem; padding: 0 6px; color: var(--muted); background: var(--panel-2); }
+.badge.pf { color: var(--ok-ink); background: var(--ok); }
+.badge.new { color: #fff; background: var(--ng); }
+.lp-card > summary .badges { margin-left: auto; display: inline-flex; gap: 4px; align-items: center; }
+.lp-card > summary .star { margin-left: 0; }
+.listpage { max-width: 780px; margin: 0 auto; padding-block: 20px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 16px; }
+.lp-head { display: flex; align-items: center; justify-content: space-between; gap: 8px 14px; flex-wrap: wrap; }
+.lp-head h1 { margin: 0; font-family: var(--f-pixel); font-weight: 400; font-size: 1.35rem; letter-spacing: .08em; color: var(--head); }
+.lp-tabs { display: flex; flex-wrap: wrap; gap: 10px; }
+.lp-tabs .opt { padding: 6px 12px; }
+.lp-grp { margin: 8px 0 0; font-family: var(--f-pixel); font-weight: 400; font-size: 1.05rem; color: var(--head); letter-spacing: .08em; border-bottom: 2px solid var(--line); padding-bottom: 4px; }
+.lp-list { display: grid; gap: 10px 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); align-items: start; }
+.lp-tools { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+.lp-empty { margin: 8px 0 0; color: var(--muted); }
+.lp-card { background: var(--panel); --c: var(--line); margin: var(--px); }
+.lp-card > summary { list-style: none; cursor: pointer; padding: 9px 14px; display: flex; align-items: baseline; gap: 4px 12px; flex-wrap: wrap; font-family: var(--f-pixel); font-size: 1.02rem; }
+.lp-card > summary::-webkit-details-marker { display: none; }
+.lp-card > summary::before { content: '▶'; font-size: .7em; color: var(--muted); }
+.lp-card[open] > summary::before { content: '▼'; }
+.lp-card > summary .chem { color: var(--accent); }
+.lp-card > summary .star { margin-left: auto; color: var(--gold); }
+.lp-card > summary:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.lp-card[open] > summary { border-bottom: 1px solid var(--line); }
+.lp-body { padding: 10px 14px 14px; display: grid; gap: 6px; }
+.lp-card h3 { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; font-family: var(--f-pixel); font-weight: 400; font-size: 1.08rem; color: var(--text); }
+.lp-card h3 .chem { font-size: 1.05rem; color: var(--accent); }
+.lp-where { margin: 0; font-size: .85rem; color: var(--muted); }
+.lp-card ul { margin: 0; padding-left: 1.2em; font-size: .92rem; }
+.lp-card ul li { margin: 1px 0; }
+.lp-note { margin: 0; font-size: .85rem; color: var(--muted); }
+.lp-body details { font-size: .9rem; }
+.lp-body summary { cursor: pointer; font-family: var(--f-pixel); color: var(--accent); width: fit-content; }
+.lp-body summary:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.lp-body .bmbtn { justify-self: start; }
+.lp-eq { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.lp-eq li { background: var(--panel-2); padding: 6px 10px; overflow-x: auto; }
+.lp-eq .chem { white-space: nowrap; }
+.lp-eq small { display: block; color: var(--muted); font-size: .8rem; }
+@media (prefers-reduced-motion: reduce) { .btn:active { transform: none; } .life.hurt { animation: none; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="stage-col">
+    <div class="stage px" id="stage">
+      <canvas id="cv" width="256" height="128" aria-label="研究室で、博士と助手が実験台をはさんで立っているドット絵"></canvas>
+      <div class="talk left" id="talk" hidden><div class="bubble px"><span class="who" id="who">博士</span><span id="line"></span></div></div>
+      <div class="overlay" id="titleScreen">
+        <p class="big">博士の試薬棚</p>
+        <p>博士にたのまれた試薬を実験台から取り、<br>正しい性質を書いたラベルを貼ろう。<br>まちがえるとライフが減るぞ。</p>
+      </div>
+      <div class="overlay" id="endScreen" hidden>
+        <p class="big" id="endBig"></p>
+        <p class="rank" id="endRank"></p>
+        <p id="endMsg"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="side">
+    <header class="hud">
+      <h1>博士の試薬棚</h1>
+      <div class="meta" id="meta" hidden>
+        <span id="qnum">依頼 1 / 8</span>
+        <span class="life" id="life" aria-label="ライフ"></span>
+        <button class="bmbtn" id="bmBtn" type="button" aria-pressed="false"><i class="fu" aria-hidden="true"></i>付せんをはる</button>
+        <button class="btn ghost small px" id="quitBtn" type="button">やめる</button>
+      </div>
+    </header>
+
+    <section class="panel px" id="menu">
+      <div class="lp-tools"><button class="linkbtn" id="listBtn" type="button">📓 物質ノート ▶</button><span class="badge pf" id="compTag" hidden></span><button class="linkbtn" id="bmListBtn" type="button"><i class="fu" aria-hidden="true"></i>付せん一覧 ▶</button></div>
+      <h2>範囲</h2>
+      <div class="opts" id="rangeOpts">
+        <button class="opt px" type="button" data-v="nm" aria-pressed="true"><b>非金属元素</b><small id="cnt-nm"></small></button>
+        <button class="opt px" type="button" data-v="tm" aria-pressed="false"><b>典型金属元素</b><small id="cnt-tm"></small></button>
+        <button class="opt px" type="button" data-v="tr" aria-pressed="false"><b>遷移元素</b><small id="cnt-tr"></small></button>
+        <button class="opt px" type="button" data-v="all" aria-pressed="false"><b>すべて</b><small id="cnt-all"></small></button>
+        <button class="opt px" type="button" data-v="bm" aria-pressed="false"><b><i class="fu" aria-hidden="true"></i>付せん</b><small id="cnt-bm"></small></button>
+      </div>
+      <h2>博士の たのみ方</h2>
+      <div class="opts" id="askOpts">
+        <button class="opt px" type="button" data-v="name" aria-pressed="true"><b>名称</b></button>
+        <button class="opt px" type="button" data-v="hint" aria-pressed="false"><b>性質</b></button>
+        <button class="opt px" type="button" data-v="random" aria-pressed="false"><b>ランダム</b></button>
+      </div>
+      <h2>依頼の数</h2>
+      <div class="opts" id="numOpts">
+        <button class="opt px" type="button" data-v="5" aria-pressed="false"><b>5件</b></button>
+        <button class="opt px" type="button" data-v="10" aria-pressed="true"><b>10件</b></button>
+        <button class="opt px" type="button" data-v="15" aria-pressed="false"><b>15件</b></button>
+        <button class="opt px" type="button" data-v="all" aria-pressed="false"><b id="allLabel">全件</b></button>
+      </div>
+      <h2>ライフ</h2>
+      <div class="opts" id="lifeOpts">
+        <button class="opt px" type="button" data-v="3" aria-pressed="true"><b><span style="color:var(--ng)">♥</span> 3</b></button>
+        <button class="opt px" type="button" data-v="5" aria-pressed="false"><b><span style="color:var(--ng)">♥</span> 5</b></button>
+        <button class="opt px" type="button" data-v="7" aria-pressed="false"><b><span style="color:var(--ng)">♥</span> 7</b></button>
+      </div>
+      <p class="keys-help">キーボードでも遊べます：<kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> 選ぶ　<kbd>Enter</kbd> 決定　<kbd>Backspace</kbd> わくを空にする　反応式のわくでは <kbd>Enter</kbd> で候補を順に入れる　<kbd>Esc</kbd> やめる</p>
+      <div class="row-end stick"><button class="btn px" id="startBtn" type="button">研究室に入る</button></div>
+    </section>
+
+    <section class="panel px" id="pickPanel" hidden>
+      <h2>① 試薬を取る</h2>
+      <p class="lead" id="pickLead"></p>
+      <div class="bottles" id="bottles"></div>
+      <div class="feedback" id="pickFb" hidden>
+        <p class="verdict" id="pickVerdict"></p>
+        <p id="pickNote"></p>
+        <div class="row-end stick"><button class="btn px" id="toLabelBtn" type="button">ラベルを書く ▶</button></div>
+      </div>
+    </section>
+
+    <section class="panel px" id="labelPanel" hidden>
+      <div class="ph"><h2>② ラベルを貼る</h2><button class="btn ghost small px" type="button" data-back>◀ 1つ前へもどる</button></div>
+      <div class="label px">
+        <div class="lh"><span class="nm" id="lbName"></span><span class="fm" id="lbFormula"></span></div>
+        <span class="cap">性質・取りあつかい</span>
+      </div>
+      <p class="note" id="labelHelp">この試薬の性質として<b style="color:var(--text);font-weight:400">正しいものを すべて</b>選んでから、貼ろう。</p>
+      <div class="props" id="props"></div>
+      <div class="row-end stick" id="pasteRow"><button class="btn px" id="pasteBtn" type="button" disabled>ラベルを貼る</button></div>
+      <div class="feedback" id="labelFb" hidden>
+        <p class="verdict" id="labelVerdict"></p>
+        <div class="sum" id="labelSum" hidden></div>
+        <p id="labelNote"></p>
+        <button class="linkbtn" id="showAllBtn" type="button" hidden>選択肢をすべて見る</button>
+        <div class="row-end stick"><button class="btn px" id="nextBtn" type="button">実験する ▶</button></div>
+      </div>
+    </section>
+
+    <section class="panel px" id="expPanel" hidden>
+      <div class="ph"><h2>③ 実験する</h2><button class="btn ghost small px" type="button" data-back>◀ 1つ前へもどる</button></div>
+      <p class="lead" id="expLead"></p>
+      <div class="eq px" id="eq" aria-label="反応式"></div>
+      <p class="eqmsg" id="eqMsg" aria-live="polite"></p>
+      <div class="tray" id="tray"></div>
+      <div class="row-end stick" id="reactRow"><button class="btn px" id="reactBtn" type="button" disabled>反応させる</button></div>
+      <div class="feedback" id="expFb" hidden>
+        <p class="verdict" id="expVerdict"></p>
+        <p class="ans" id="expAns"></p>
+        <p id="expNote"></p>
+        <div class="row-end stick"><button class="btn px" id="expNextBtn" type="button">つぎの依頼へ ▶</button></div>
+      </div>
+    </section>
+
+    <section class="panel px" id="reviewPanel" hidden>
+      <h2>ふりかえり</h2>
+      <p class="note" id="reviewNote" hidden></p>
+      <ul class="review" id="review"></ul>
+      <div class="row-end">
+        <button class="btn ghost px" id="menuBtn" type="button">メニューへ</button>
+        <button class="btn px" id="retryBtn" type="button">もう一度</button>
+      </div>
+    </section>
+  </div>
+</main>
+
+<section class="listpage" id="listPage" hidden aria-labelledby="listTitle">
+  <header class="lp-head">
+    <h1 id="listTitle">📓 物質ノート</h1>
+    <button class="btn ghost small px" id="listBack" type="button">◀ タイトルへ戻る</button>
+  </header>
+  <div class="lp-tabs" id="listTabs">
+    <button class="opt px" type="button" data-v="all" aria-pressed="true"><b>すべて</b></button>
+    <button class="opt px" type="button" data-v="nm" aria-pressed="false"><b>非金属元素</b></button>
+    <button class="opt px" type="button" data-v="tm" aria-pressed="false"><b>典型金属元素</b></button>
+    <button class="opt px" type="button" data-v="tr" aria-pressed="false"><b>遷移元素</b></button>
+    <button class="opt px" type="button" data-v="bm" aria-pressed="false"><b><i class="fu" aria-hidden="true"></i>付せん</b></button>
+  </div>
+  <div class="lp-tools"><button class="linkbtn" id="openAllBtn" type="button">すべて開く</button><button class="linkbtn" id="closeAllBtn" type="button">すべて閉じる</button></div>
+  <div id="listBody"></div>
+  <div class="row-end"><button class="btn ghost small px" id="listBack2" type="button">◀ タイトルへ戻る</button></div>
+</section>
+
+<script>
+(() => {
+  'use strict';
+  // =========================================================
+  // 試薬データ（非金属元素）
+  // look: びんの見た目（ドット絵）  ok: 正しい性質  ng: まちがいの性質（[文, なぜちがうか]）
+  // =========================================================
+  const R = [
+    { id: 'hno3', name: '濃硝酸', f: 'HNO3', look: 'brown', liq: '#f3e7b8', where: '褐色びん',
+      n: '酸', tags: [['brownBottle', 0], ['lightDecomp', 0], ['oxidizer', 1], ['volatile', 2], ['pungent', -1], ['strongAcid', -1]],
+      ok: ['光や熱で分解しやすいので、褐色びんに保存する', '強い酸化作用をもち、銅や銀を溶かす', '揮発性の酸である', 'アンモニアを原料に、オストワルト法でつくられる', 'アルミニウムや鉄は、表面に酸化被膜ができて溶けない（不動態）', '水溶液は強酸性を示す'],
+      ng: [['不揮発性で、沸点が高い', '不揮発性なのは濃硫酸'], ['鉄やアルミニウムを激しく溶かす', '表面に酸化被膜ができ（不動態）、溶けない'], ['ガラスを溶かすので、ポリエチレン容器に保存する', 'それはフッ化水素酸'], ['銅を溶かして、水素を発生する', '濃硝酸では NO₂、希硝酸では NO が発生し、水素は出ない'], ['水溶液は弱酸性を示す', '強酸性を示す']],
+      note: '光で分解すると NO₂ が生じるため、古い濃硝酸は黄色っぽくなる。' },
+    { id: 'h2so4', name: '濃硫酸', f: 'H2SO4', look: 'glass', liq: '#e8eef5', where: 'ガラスびん（とろりとした液体）',
+      n: '酸', tags: [['nonvolatile', 0], ['drying', 1], ['dehydrate', 2], ['strongAcid', -1], ['oxidizer', 4]],
+      ok: ['不揮発性で、沸点が高い', '吸湿性が強く、乾燥剤に使われる', '脱水作用があり、砂糖（スクロース）を黒く炭化させる', '接触法でつくられる', '熱濃硫酸は強い酸化作用を示し、銅を溶かす', '水に溶けるとき激しく発熱する', '希硫酸は、亜鉛や鉄と反応して水素を発生する'],
+      ng: [['水に加えると、温度が大きく下がる', '水に溶けるとき激しく発熱する'], ['光で分解しやすいので、褐色びんに保存する', 'それは濃硝酸'], ['揮発性で、アンモニアに近づけると白煙を生じる', '白煙を生じるのは揮発性の濃塩酸'], ['濃硫酸に水を少しずつ注いでうすめる', '水に濃硫酸を少しずつ加えてうすめる'], ['オストワルト法でつくられる', '接触法でつくられる'], ['希硫酸は銅と反応して、水素を発生する', '銅は希硫酸に溶けない']],
+      note: '薄めるときは、水に濃硫酸を少しずつ加える（逆は危険）。' },
+    { id: 'hcl', name: '濃塩酸', f: 'HCl', look: 'glass', liq: '#f2f5f8', fume: true, where: 'ガラスびん（白い煙が出る）',
+      n: '酸', tags: [['whiteSmokeNH3', 1], ['volatile', 0], ['pungent', -1], ['strongAcid', 2]],
+      ok: ['揮発性で、塩化水素が空気中に出ていく', 'アンモニアに近づけると白煙（NH₄Cl）を生じる', '水溶液は強酸性を示す', '塩化水素は、塩化ナトリウムに濃硫酸を加えて加熱するとつくれる', '酸化マンガン(Ⅳ)と加熱すると、塩素が発生する', '塩化水素 HCl の水溶液である'],
+      ng: [['不揮発性である', '揮発性'], ['弱酸である', '塩酸は強酸'], ['黄緑色の液体である', '無色。黄緑色なのは塩素'], ['塩化水素は、塩化ナトリウムに濃硝酸を加えるとつくれる', '濃硫酸を加えて加熱する'], ['酸化マンガン(Ⅳ)と加熱すると、酸素が発生する', '塩素が発生する']],
+      note: '濃塩酸は塩化水素 HCl の水溶液。酸化マンガン(Ⅳ)と加熱すると塩素が発生する。' },
+    { id: 'hf', name: 'フッ化水素酸', f: 'HF', look: 'poly', liq: '#f2f5f8', where: 'ポリエチレン容器',
+      n: '酸', tags: [['glassAttack', 0], ['polyBottle', 0], ['weakAcid', 1], ['pungent', -1]],
+      ok: ['ガラスを溶かすので、ポリエチレン容器に保存する', '水溶液は弱酸性を示す', '毒性が強く、皮膚をおかす', 'ホタル石に濃硫酸を加えて加熱するとつくれる', '水素結合のため、ほかのハロゲン化水素より沸点が高い'],
+      ng: [['水溶液は強酸性を示す', 'ハロゲン化水素の中で HF だけが弱酸'], ['ガラスびんに保存する', 'ガラスを溶かしてしまう'], ['ハロゲン化水素の中で、沸点がもっとも低い', '水素結合のため、沸点はもっとも高い'], ['ホタル石に濃塩酸を加えるとつくれる', '濃硫酸を加えて加熱する'], ['ハロゲン化水素の中で、酸性がもっとも強い', 'HF は弱酸']],
+      note: 'SiO₂ + 6HF → H₂SiF₆ + 2H₂O。ガラスのくもり加工にも使われる。' },
+    { id: 'cl2', name: '塩素', f: 'Cl2', look: 'gas', liq: '#c9e04a', where: '集気びん（気体）',
+      n: '気体', tags: [['yellowGreen', 0], ['pungent', 0], ['toxic', 0], ['bleach', 1], ['oxidizer', -1], ['heavier', 2]],
+      ok: ['黄緑色で刺激臭のある有毒な気体', '水に少し溶け、その水溶液は殺菌・漂白作用を示す', '空気より重いので、下方置換で集める', '工業的には、塩化ナトリウム水溶液の電気分解でつくられる', 'ヨウ化カリウムデンプン紙を青く変色させる', '水素と混ぜて光を当てると、爆発的に反応する'],
+      ng: [['無色・無臭の気体', '黄緑色で刺激臭がある'], ['上方置換で集める', '空気より重いので下方置換'], ['ハロゲンの単体の中で、酸化力がもっとも強い', 'もっとも強いのはフッ素'], ['水上置換で集める', '水に溶けるので、下方置換で集める'], ['ヨウ化カリウムデンプン紙を赤く変色させる', '青く（青紫色に）変色させる']],
+      note: 'Cl₂ + H₂O ⇄ HCl + HClO。次亜塩素酸 HClO が殺菌・漂白にはたらく。' },
+    { id: 'br2', name: '臭素', f: 'Br2', look: 'small', liq: '#8e2a12', fume: true, where: '小さなガラスびん（密栓）',
+      n: '液体', tags: [['halogen', 6], ['freesI2', 2], ['pungent', 7], ['toxic', 1], ['oxidizer', 2], ['redBrown', 1], ['liquidRT', 0]],
+      ok: ['常温で液体の、非金属の単体', '赤褐色で揮発しやすく、蒸気は有毒', 'ヨウ化カリウム水溶液に加えると、ヨウ素を遊離させる', '水に少し溶け、塩素に似た反応を示すが、塩素より弱い', '二原子分子 Br₂ からなる', '有機化合物の不飽和結合の検出に使われる', 'ハロゲン（17族元素）の単体である', '強い刺激臭がある'],
+      ng: [['黒紫色の固体', 'それはヨウ素'], ['水と激しく反応して、酸素を発生する', 'それはフッ素'], ['塩素より酸化力が強い', '酸化力は Cl₂ ＞ Br₂'], ['常温で気体の、非金属の単体', '常温で液体'], ['ヨウ素より酸化力が弱い', '酸化力は Br₂ ＞ I₂']],
+      note: '酸化力は F₂ ＞ Cl₂ ＞ Br₂ ＞ I₂。Br₂ + 2KI → 2KBr + I₂。' },
+    { id: 'i2', name: 'ヨウ素', f: 'I2', look: 'solid', liq: '#3a2448', where: '広口びん（固体）',
+      n: '固体', tags: [['starch', 1], ['blackPurple', 0], ['sublime', 0], ['insoluble', 2]],
+      ok: ['黒紫色の固体で、昇華性がある', 'デンプン水溶液に加えると、青紫色になる', '水には溶けにくいが、ヨウ化カリウム水溶液には溶ける', 'ヨウ化カリウム水溶液に塩素を通じるとできる', '酸化力は、ハロゲンの単体の中でいちばん弱い', '二原子分子 I₂ からなる'],
+      ng: [['赤褐色の液体', 'それは臭素'], ['水によく溶ける', '水には溶けにくい'], ['塩化ナトリウム水溶液に加えると、塩素が発生する', 'I₂ は Cl₂ より酸化力が弱く、反応しない'], ['水によく溶けて、褐色の水溶液になる', '水には溶けにくい（KI 水溶液には溶ける）'], ['デンプン水溶液に加えると、赤紫色になる', '青紫色になる']],
+      note: 'ヨウ素デンプン反応は、ヨウ素の検出に使われる。' },
+    { id: 'hclo', g: 'nm', name: '次亜塩素酸', f: 'HClO', look: 'glass', liq: '#eef3d8', where: 'ガラスびん（塩素水）',
+      n: '酸', tags: [['fromClWater', 1], ['bleach', 0], ['oxidizer', 2], ['weakAcid', 3]],
+      ok: ['漂白・殺菌作用がある', '塩素を水に溶かすと、塩化水素とともに生じる', '強い酸化作用をもつ', '弱酸である', '塩素の酸化数は ＋1', 'オキソ酸の一つである', '水溶液中でのみ存在する'],
+      ng: [['強酸で、不揮発性である', '弱酸で、不安定'], ['塩素を水に溶かすと、塩化水素だけが生じる', 'HCl と HClO が生じる'], ['還元作用によって漂白する', '酸化作用で漂白する'], ['塩素の酸化数は −1', 'HClO の Cl は ＋1'], ['塩素の酸化数は ＋5', '＋1（＋5 は塩素酸 HClO₃）']],
+      note: 'Cl₂ ＋ H₂O ⇄ HCl ＋ HClO。塩素水の漂白・殺菌作用は HClO による。' },
+    { id: 'naclo', g: 'nm', name: '次亜塩素酸ナトリウム', f: 'NaClO', look: 'poly', liq: '#eef3c8', where: 'ポリ容器（水溶液）',
+      n: '水溶液', tags: [['bleachAgent', 0], ['hclGivesCl2', 1], ['oxidizer', 2]],
+      ok: ['漂白剤や殺菌剤に使われる', '塩酸を加えると塩素が発生する（「まぜるな危険」）', '強い酸化作用をもつ', '塩素を水酸化ナトリウム水溶液に通じるとできる', '水溶液は塩基性を示す', '塩素の酸化数は ＋1'],
+      ng: [['水溶液は強酸性を示す', '水溶液は塩基性'], ['還元作用によって漂白する', '酸化作用で漂白する'], ['塩素の酸化数は −1', 'ClO⁻ の Cl は ＋1'], ['塩酸を加えると、酸素が発生する', '塩素が発生する'], ['塩素を塩酸に通じるとできる', '水酸化ナトリウム水溶液に通じる']],
+      note: 'さらし粉の有効成分も ClO⁻。酸性の洗剤とまぜると塩素が発生して危険。' },
+    { id: 'bleachpowder', g: 'nm', name: 'さらし粉', f: 'CaCl(ClO)·H2O', look: 'solid', liq: '#f2f2e6', where: '広口びん（白い粉末）',
+      n: '固体', tags: [['fromCaOH2Cl2', 2], ['hclGivesCl2', 1], ['bleachAgent', 0], ['oxidizer', 5], ['white', -1]],
+      ok: ['漂白剤や殺菌剤に使われる', '塩酸を加えると塩素が発生する', '水酸化カルシウムに塩素を吸収させてつくる', '有効成分は次亜塩素酸イオン ClO⁻', '白色の粉末', '強い酸化作用をもつ', '空気中の湿気で分解しやすい'],
+      ng: [['塩酸を加えると酸素が発生する', '塩素が発生する'], ['還元作用によって漂白する', '酸化作用で漂白する'], ['主成分は炭酸カルシウムである', 'CaCl(ClO)·H₂O'], ['水酸化ナトリウムに塩素を吸収させてつくる', 'それは次亜塩素酸ナトリウム。さらし粉は Ca(OH)₂ から'], ['有効成分は塩化物イオン Cl⁻', 'ClO⁻']],
+      note: '高度さらし粉 Ca(ClO)₂·2H₂O も同じように使われる。' },
+    { id: 'o2', g: 'nm', name: '酸素', f: 'O2', look: 'can', liq: '#3f86d0', where: 'スプレー缶',
+      n: '気体', tags: [['supportsCombust', 0], ['fromH2O2', 1], ['ozoneAllotrope', 2], ['colorless', -1], ['odorless', -1]],
+      ok: ['ほかの物質が燃えるのを助ける（助燃性）', '過酸化水素水に酸化マンガン(Ⅳ)を加えると発生する', 'オゾン O₃ とは同素体の関係にある', '無色・無臭の気体', '水に溶けにくく、水上置換で集める', '空気の体積の約 21％ をしめる', '工業的には液体空気の分留でつくられる'],
+      ng: [['それ自身がよく燃える', '助燃性はあるが、それ自身は燃えない'], ['淡青色で特異臭がある', 'それはオゾン'], ['空気の体積の約 78％ をしめる', 'それは窒素'], ['水によく溶けるので、下方置換で集める', '水に溶けにくく、水上置換'], ['過酸化水素水に酸化マンガン(Ⅳ)を加えると、水素が発生する', '酸素が発生する']],
+      note: '2H₂O₂ → 2H₂O ＋ O₂（MnO₂ は触媒）。2KClO₃ → 2KCl ＋ 3O₂ でも得られる。' },
+    { id: 'o3', g: 'nm', name: 'オゾン', f: 'O3', look: 'gas', liq: '#cfe3f6', where: '集気びん（淡青色の気体）',
+      n: '気体', tags: [['specialSmell', 0], ['fromSilent', 2], ['ozoneLayer', 3], ['oxidizer', 1], ['paleBlue', -1], ['toxic', -1]],
+      ok: ['特異臭のある淡青色の気体', '酸化力が強く、ヨウ化カリウムデンプン紙を青くする', '酸素中で無声放電を行うか、紫外線を当てるとできる', '上空でオゾン層をつくり、紫外線を吸収する', '酸素の同素体である', '分子式は O₃ である', '殺菌や漂白に使われる'],
+      ng: [['無色・無臭の気体', '淡青色・特異臭'], ['酸化力は酸素より弱い', '酸素より強い'], ['水素の同素体である', '酸素の同素体'], ['酸素中で加熱するとできる', '無声放電や紫外線でできる'], ['上空でオゾン層をつくり、赤外線を吸収する', '紫外線を吸収する']],
+      note: '3O₂ → 2O₃（無声放電）。2KI ＋ O₃ ＋ H₂O → I₂ ＋ 2KOH ＋ O₂ でヨウ素が遊離する。' },
+    { id: 'h2o2', name: '過酸化水素水', f: 'H2O2', look: 'brown', liq: '#f2f5f8', where: '褐色びん',
+      n: '液体', tags: [['mno2O2', 0], ['lightDecomp', 2], ['oxidizer', 1], ['brownBottle', -1], ['colorless', -1]],
+      ok: ['酸化マンガン(Ⅳ)を加えると、酸素が発生する', '酸化剤としても還元剤としてもはたらく', '光や熱で分解しやすい', '3%程度の水溶液はオキシドールとよばれ、消毒に使われる', '過酸化水素 H₂O₂ の水溶液である', '分子中に、酸素原子どうしの結合（－O－O－）をもつ'],
+      ng: [['淡青色で、特異臭がある', 'それはオゾン'], ['不揮発性の強酸である', 'それは濃硫酸'], ['鉄を加えると、水素が発生する', '水素が出るのは希酸と金属の反応'], ['酸化マンガン(Ⅳ)を加えると、水素が発生する', '酸素が発生する'], ['どんな相手に対しても、酸化剤としてだけはたらく', '酸化剤としても還元剤としてもはたらく']],
+      note: '2H₂O₂ → 2H₂O + O₂（MnO₂ は触媒）。3%前後のものはオキシドールとよばれる。' },
+    { id: 'h2', g: 'nm', name: '水素', f: 'H2', look: 'can', liq: '#c8453a', where: 'スプレー缶',
+      n: '気体', tags: [['lightest', 0], ['fromZnAcid', 1], ['burnsWater', 2], ['colorless', -1], ['odorless', -1]],
+      ok: ['すべての気体の中で最も軽い', '亜鉛に希硫酸（希塩酸）を加えると発生する', '燃えると水だけを生じる', '無色・無臭の気体', '水に溶けにくく、水上置換で集める', '酸素と混ぜて点火すると、爆発的に反応する', '燃料電池の燃料に使われる'],
+      ng: [['空気より重い', 'すべての気体の中で最も軽い'], ['ものが燃えるのを助ける', 'それは酸素（水素はそれ自身が燃える）'], ['銅に希硫酸を加えると発生する', '銅は希硫酸に溶けない'], ['空気より重いので、下方置換で集める', '最も軽い。水上置換で集める'], ['亜鉛に希硫酸を加えると、酸素が発生する', '水素が発生する']],
+      note: 'Zn ＋ H₂SO₄ → ZnSO₄ ＋ H₂。2H₂ ＋ O₂ → 2H₂O。' },
+    { id: 'n2', g: 'nm', name: '窒素', f: 'N2', look: 'can', liq: '#6f7c8a', where: 'スプレー缶',
+      n: '気体', tags: [['air78', 0], ['inert', 1], ['nh4no2', 2], ['haberRaw', 3], ['colorless', -1], ['odorless', -1]],
+      ok: ['空気の体積の約 78％ をしめる', '常温では化学的に安定で、反応しにくい', '亜硝酸アンモニウム水溶液を加熱すると発生する', 'アンモニアの工業的製法（ハーバー・ボッシュ法）の原料になる', '無色・無臭の気体', '液体窒素は冷却剤に使われる', '食品の酸化を防ぐため、袋に封入される'],
+      ng: [['ものが燃えるのを助けるはたらきが強い', 'それは酸素'], ['水によく溶ける', '水に溶けにくい'], ['石灰水を白くにごらせる', 'それは CO₂'], ['空気の体積の約 21％ をしめる', 'それは酸素（窒素は約 78％）'], ['常温で水素と激しく反応してアンモニアになる', '高温・高圧と触媒が必要']],
+      note: 'NH₄NO₂ → N₂ ＋ 2H₂O。N₂ ＋ 3H₂ ⇄ 2NH₃（ハーバー・ボッシュ法）。' },
+    { id: 'no', g: 'nm', name: '一酸化窒素', f: 'NO', look: 'gas', liq: '#f4f6f8', where: '集気びん（無色の気体）',
+      n: '気体', tags: [['airBrown', 0], ['fromDiluteHNO3', 2], ['waterCollect', 1], ['colorless', -1]],
+      ok: ['空気にふれると、すぐに赤褐色の NO₂ になる', '水に溶けにくく、水上置換で集める', '銅に希硝酸を加えると発生する', '無色の気体', 'オストワルト法の途中でできる', '窒素の酸化数は ＋2'],
+      ng: [['赤褐色で刺激臭がある', 'それは NO₂'], ['水によく溶け、下方置換で集める', '水に溶けにくく、水上置換'], ['銅に濃硝酸を加えると発生する', '濃硝酸では NO₂'], ['水によく溶けるので、水上置換は使えない', '水に溶けにくい'], ['空気にふれても色は変わらない', '赤褐色の NO₂ になる']],
+      note: '2NO ＋ O₂ → 2NO₂。NO は水に溶けにくいので、水上置換で集める。' },
+    { id: 'nh3', name: 'アンモニア水', f: 'NH3', look: 'glass', liq: '#eef4ff', where: 'ガラスびん（密栓）',
+      n: '水溶液', tags: [['weakBase', 0], ['pungent', 0], ['whiteSmokeHCl', 1]],
+      ok: ['刺激臭があり、水溶液は弱塩基性を示す', '濃塩酸に近づけると、白煙を生じる', 'アンモニアは空気より軽いので、上方置換で集める', '工業的には、ハーバー・ボッシュ法で窒素と水素から合成する', '気体のアンモニアは水に極めてよく溶ける'],
+      ng: [['水溶液は強酸性を示す', '弱塩基性'], ['無臭である', '強い刺激臭がある'], ['アンモニアは下方置換で集める', '空気より軽く水によく溶けるので上方置換'], ['塩化ナトリウムと水酸化カルシウムを加熱すると発生する', '塩化アンモニウムを使う'], ['気体のアンモニアは水に溶けにくい', '水に極めてよく溶ける']],
+      note: 'NH₃ + HCl → NH₄Cl（白煙）。アンモニアの検出に使われる。' },
+    { id: 'nh4cl', g: 'nm', name: '塩化アンモニウム', f: 'NH4Cl', look: 'solid', liq: '#f7f7f4', where: '広口びん（白い結晶）',
+      n: '固体', tags: [['nh3Gen', 0], ['fromNH3HCl', 1], ['acidicSol', 2], ['white', -1]],
+      ok: ['水酸化カルシウムと混ぜて加熱すると、アンモニアが発生する', 'アンモニアと塩化水素が反応すると、白煙として生じる', '水溶液は弱酸性を示す', '白色の結晶', '水によく溶ける', 'マンガン乾電池の電解液に使われる', 'アンモニアソーダ法の途中でできる'],
+      ng: [['水溶液は塩基性を示す', '弱酸性'], ['水に溶けにくい', '水によく溶ける'], ['加熱すると塩素が発生する', '水酸化カルシウムと加熱すると NH₃ が発生する'], ['強酸と強塩基からなる塩である', '強酸 HCl と弱塩基 NH₃ の塩'], ['水酸化ナトリウムと加熱すると、塩化水素が発生する', 'アンモニアが発生する']],
+      note: '強酸と弱塩基からなる塩なので、水溶液は弱酸性を示す。' },
+    { id: 'p4', name: '黄リン', f: 'P4', look: 'water', liq: '#f2e6a0', where: '水の入った広口びん',
+      n: '固体', tags: [['selfIgnite', 0], ['underWater', 0], ['toxic', 1], ['insoluble', -1]],
+      ok: ['空気中で自然発火するので、水中に保存する', '毒性が強い', '燃えると十酸化四リン P₄O₁₀ になる', '赤リンと同素体の関係にある', '空気を断って加熱すると、赤リンになる'],
+      ng: [['毒性が少なく、マッチ箱の側薬に使われる', 'それは赤リン'], ['石油中に保存する', '石油中に保存するのはナトリウムなど'], ['空気中で安定で、発火しにくい', 'それは赤リン'], ['赤リンを空気を断って加熱すると、黄リンになる', '黄リンを加熱すると赤リンになる'], ['水によく溶ける', '水に溶けないので水中に保存できる']],
+      note: '黄リンと赤リンは同素体。燃えるとどちらも十酸化四リン P₄O₁₀ になる。' },
+    { id: 'pr', name: '赤リン', f: 'P', look: 'solid', liq: '#9a3a2a', where: '広口びん（固体）',
+      n: '固体', tags: [['match', 1], ['redBrown', 4], ['insoluble', -1]],
+      ok: ['黄リンの同素体である', '毒性が少なく、マッチ箱の側薬に使われる', '空気中で自然発火しない', '燃えると十酸化四リン P₄O₁₀ になる', '赤褐色の粉末'],
+      ng: [['空気中で自然発火するので、水中に保存する', 'それは黄リン'], ['猛毒である', '毒性は少ない'], ['黒紫色の固体', 'それはヨウ素。赤リンは赤褐色の粉末'], ['黄リンより毒性が強い', '毒性は少ない'], ['石油中に保存する', '自然発火しないので、ふつうに保存できる']],
+      note: '黄リンを空気を断って加熱すると、赤リンになる。' },
+    { id: 's', name: '硫黄', f: 'S', look: 'solid', liq: '#f2d43a', where: '広口びん（固体）',
+      n: '固体', tags: [['blueFlame', 1], ['yellow', 0], ['insoluble', 4]],
+      ok: ['黄色の固体（斜方硫黄）', '燃えると青い炎をあげ、二酸化硫黄になる', '同素体に、単斜硫黄・ゴム状硫黄がある', '斜方硫黄・単斜硫黄は S₈ 分子からなる', '水に溶けにくい', '鉄や銅と加熱すると、硫化物をつくる'],
+      ng: [['水によく溶ける', '水に溶けにくい'], ['燃えると三酸化硫黄になる', '燃えてできるのは SO₂'], ['赤褐色の液体', 'それは臭素'], ['燃えると黄色い炎をあげる', '青い炎をあげる'], ['ゴム状硫黄は S₈ 分子からなる', 'ゴム状硫黄は長い鎖状の分子']],
+      note: 'S + O₂ → SO₂。SO₃ は SO₂ を V₂O₅ 触媒で酸化してつくる（接触法）。' },
+    { id: 'p4o10', name: '十酸化四リン', f: 'P4O10', look: 'solid', liq: '#f4f4f4', where: '広口びん（白い粉末）',
+      n: '固体', tags: [['drying', 1], ['white', 0], ['fromPhosphorus', 3]],
+      ok: ['白色の粉末', '吸湿性が強く、乾燥剤に使われる', '水を加えて加熱すると、リン酸になる', 'リンを燃焼させるとできる', '酸性酸化物なので、塩基性の気体（NH₃）の乾燥には使えない', '分子式 P₄O₁₀ で表される、リンの酸化物'],
+      ng: [['塩基性の乾燥剤で、アンモニアの乾燥に使う', '酸性の乾燥剤なので、塩基性の NH₃ には使えない'], ['黄色の固体', '白色'], ['水に溶けにくい', '水と反応してリン酸になる'], ['水を加えて加熱すると、硝酸になる', 'リン酸になる'], ['塩基性酸化物である', '酸性酸化物']],
+      note: 'P₄O₁₀ + 6H₂O → 4H₃PO₄。' },
+    // ---- 非金属元素（追加） ----
+    { id: 'no2', g: 'nm', name: '二酸化窒素', f: 'NO2', look: 'gas', liq: '#b0502a', where: '集気びん（赤褐色の気体）',
+      n: '気体', tags: [['redBrown', 0], ['pungent', 0], ['waterNitric', 1], ['toxic', 0], ['oxidizer', -1], ['heavier', 4]],
+      ok: ['赤褐色・刺激臭の有毒な気体', '水と反応して硝酸になる', '常温で一部が無色の四酸化二窒素 N₂O₄ になる', '銅に濃硝酸を加えると発生する', '水に溶けやすいので、下方置換で集める', 'オストワルト法の途中で生じる'],
+      ng: [['無色・無臭の気体', '赤褐色で刺激臭がある'], ['水上置換で集める', '水に溶けて反応するので下方置換'], ['空気中で酸化されて一酸化窒素になる', '逆。NO が酸化されて NO₂ になる'], ['銅に希硝酸を加えると発生する', '希硝酸では NO'], ['常温で一部が赤褐色の四酸化二窒素になる', 'N₂O₄ は無色']],
+      note: '銅に濃硝酸を注ぐと発生する。' },
+    { id: 'h2s', g: 'nm', name: '硫化水素', f: 'H2S', look: 'gas', liq: '#eef2ee', where: '集気びん（無色の気体）',
+      n: '気体', tags: [['eggSmell', 0], ['reducing', 2], ['colorless', 0], ['toxic', 0], ['heavier', -1]],
+      ok: ['無色・腐卵臭の有毒な気体', '水に少し溶けて弱酸性を示す', '還元剤としてはたらく', '硫化鉄(Ⅱ)に希硫酸を加えると発生する', '酢酸鉛(Ⅱ)水溶液をしみ込ませたろ紙を黒くする', '金属イオンと反応して、硫化物の沈殿をつくる'],
+      ng: [['黄緑色の気体', '無色。黄緑色は塩素'], ['上方置換で集める', '空気より重いので下方置換'], ['酸化剤としてはたらき、相手を酸化する', 'H₂S は還元剤'], ['酢酸鉛(Ⅱ)水溶液をしみ込ませたろ紙を白くする', '黒くする（PbS）'], ['水に溶けて強酸性を示す', '弱酸性']],
+      note: '酢酸鉛(Ⅱ)水溶液をしみ込ませたろ紙を黒くする（PbS）。多くの金属イオンと硫化物の沈殿をつくる。' },
+    { id: 'so2', g: 'nm', name: '二酸化硫黄', f: 'SO2', look: 'gas', liq: '#f2f2ee', where: '集気びん（無色の気体）',
+      n: '気体', tags: [['bleach', 1], ['reducing', 1], ['pungent', 0], ['colorless', 0], ['toxic', 0], ['heavier', 5]],
+      ok: ['無色・刺激臭の有毒な気体', '還元作用があり、漂白に使われる', '水に溶けて弱酸性を示す', '銅に熱濃硫酸を加えると発生する', '硫黄を燃やすとできる', '空気より重く、下方置換で集める'],
+      ng: [['腐卵臭がある', '腐卵臭は硫化水素'], ['水溶液は強塩基性を示す', '弱酸性'], ['水上置換で集める', '水に溶けやすく空気より重いので下方置換'], ['酸化作用によって漂白する', '還元作用で漂白する'], ['銅に希硫酸を加えると発生する', '熱濃硫酸を使う']],
+      note: '銅と熱濃硫酸の反応や、硫黄の燃焼で発生する。' },
+    { id: 'co2', g: 'nm', name: '二酸化炭素', f: 'CO2', look: 'gas', liq: '#f4f6f8', where: '集気びん（無色の気体）',
+      n: '気体', tags: [['limewater', 2], ['odorless', 0], ['colorless', 0], ['heavier', -1]],
+      ok: ['無色・無臭の気体', '水に少し溶けて弱酸性を示す', '石灰水を白濁させる', '固体はドライアイスとよばれる', '石灰石に塩酸を加えると発生する'],
+      ng: [['可燃性で、空気中で燃える', 'CO₂ は燃えない（燃えるのは一酸化炭素）'], ['猛毒である', '猛毒なのは一酸化炭素'], ['上方置換で集める', '空気より重いので下方置換'], ['石灰水を青くする', '白くにごらせる'], ['水に溶けて弱塩基性を示す', '弱酸性']],
+      note: '固体はドライアイス。石灰石（CaCO₃）に塩酸を注ぐと発生する。' },
+    { id: 'co', g: 'nm', name: '一酸化炭素', f: 'CO', look: 'gas', liq: '#f4f6f8', where: '集気びん（無色の気体）',
+      n: '気体', tags: [['hemoglobin', 0], ['fromFormic', 2], ['reducing', 1], ['colorless', -1], ['odorless', -1], ['toxic', -1]],
+      ok: ['血液中のヘモグロビンと強く結びつくため、有毒である', '高温で金属の酸化物を還元する（製鉄に使われる）', 'ギ酸に濃硫酸を加えて加熱すると発生する', '無色・無臭の気体', '水に溶けにくい', '炭素が不完全燃焼すると生じる'],
+      ng: [['石灰水を白くにごらせる', 'それは CO₂'], ['特有の刺激臭がある', '無臭'], ['水によく溶けて酸性を示す', '水に溶けにくい'], ['ギ酸に濃塩酸を加えて加熱すると発生する', '濃硫酸（脱水作用）を使う']],
+      note: 'HCOOH → H₂O ＋ CO（濃硫酸の脱水作用）。' },
+    { id: 'na2sio3', g: 'nm', name: '水ガラス', f: 'Na2SiO3', look: 'glass', liq: '#e8f0e6', where: 'ガラスびん（粘り気のある液体）',
+      n: '液体', tags: [['silicate', 1], ['viscous', 0], ['colorless', -1]],
+      ok: ['ケイ酸ナトリウムを水と加熱した、粘り気のある液体', '塩酸を加えるとケイ酸が遊離する', '原料のケイ酸ナトリウムは、二酸化ケイ素と水酸化ナトリウムからつくる', '水溶液は塩基性を示す', '遊離したケイ酸を乾燥させると、シリカゲルになる'],
+      ng: [['水溶液は強酸性を示す', '塩基性を示す'], ['石英・水晶として天然に産出する', 'それは二酸化ケイ素'], ['乾燥させると、そのまま乾燥剤のシリカゲルになる', 'シリカゲルはケイ酸を乾燥させたもの'], ['塩酸を加えると、二酸化炭素が発生する', 'ケイ酸が遊離する'], ['二酸化ケイ素に塩酸を加えてつくる', 'NaOH（または Na₂CO₃）と加熱してつくる']],
+      note: '遊離したケイ酸を乾燥させたものがシリカゲル。' },
+    { id: 'silica', g: 'nm', name: 'シリカゲル', f: 'SiO2·nH2O', look: 'solid', liq: '#dfe9f2', where: '広口びん（半透明の粒）',
+      n: '固体', tags: [['fromSilicic', 0], ['drying', 0], ['insoluble', 2]],
+      ok: ['ケイ酸を乾燥させたもので、乾燥剤に使われる', '多孔質で、表面に水分子などを吸着する', '水に溶けない', '水ガラスに塩酸を加えて得たケイ酸からつくる', '成分は SiO₂ と水'],
+      ng: [['水によく溶ける', '水に溶けない'], ['強い酸化剤である', '酸化剤ではない'], ['水を吸うと発熱して水酸化物になる', 'それは酸化カルシウム'], ['水ガラスをそのまま乾燥させたもの', 'ケイ酸を乾燥させたもの'], ['すきまのない固体で、表面積が小さい', '多孔質で表面積が大きい']],
+      note: 'ケイ酸は、水ガラスに塩酸を加えると遊離する。' },
+    // ---- 典型金属元素 ----
+    { id: 'na', g: 'tm', name: 'ナトリウム', f: 'Na', look: 'oil', liq: '#c9ced6', where: '石油の入った広口びん',
+      n: '金属', tags: [['inOil', 0], ['waterViolent', 1], ['flameYellow', 3], ['light', 2]],
+      ok: ['空気中の水や酸素と反応しやすいので、石油中に保存する', '常温の水と激しく反応して水素を発生する', 'やわらかく、密度が小さい銀白色の金属', '炎色反応は黄色', '塩化ナトリウムの溶融塩電解でつくる', '一価の陽イオンになりやすい', '1族のアルカリ金属である'],
+      ng: [['水中に保存する', '水中に保存するのは黄リン'], ['炎色反応は赤紫色', 'Na は黄色。赤紫色は K'], ['二価の陽イオンになりやすい', '一価の陽イオン'], ['空気中で安定なので、そのまま保存できる', '石油中に保存する'], ['かたく、密度が大きい金属', 'やわらかく、密度が小さい']],
+      note: '塩化ナトリウムの溶融塩電解でつくる。' },
+    { id: 'naoh', g: 'tm', name: '水酸化ナトリウム', f: 'NaOH', look: 'solid', liq: '#f7f7f2', where: '広口びん（白い粒）',
+      n: '固体', tags: [['deliquescent', 0], ['strongBase', 1], ['white', 0], ['drying', -1], ['flameYellow', -1]],
+      ok: ['潮解性を示す白色の固体', '水溶液は強塩基性を示す', '空気中の二酸化炭素を吸収する', '塩化ナトリウム水溶液の電気分解（イオン交換膜法）でつくる', '皮膚や目をおかすので、取りあつかいに注意する'],
+      ng: [['風解性を示す', '潮解性'], ['水溶液は弱塩基性を示す', '強塩基性'], ['アンモニアソーダ法でつくる', 'NaCl 水溶液の電気分解（イオン交換膜法）でつくる'], ['空気中の酸素を吸収して変質する', '二酸化炭素を吸収する'], ['水に溶けるとき、熱を吸収する', '発熱する']],
+      note: 'イオン交換膜法：2NaCl ＋ 2H₂O → 2NaOH ＋ H₂ ＋ Cl₂' },
+    { id: 'na2co3', g: 'tm', name: '炭酸ナトリウム', f: 'Na2CO3', look: 'solid', liq: '#f5f5f0', where: '広口びん（白い粉末）',
+      n: '固体', tags: [['solvay', 0], ['glassRaw', -1], ['white', -1], ['weakBase', 1], ['flameYellow', -1]],
+      ok: ['アンモニアソーダ法（ソルベー法）でつくられる', '水溶液は塩基性を示す', '塩酸と反応して二酸化炭素を発生する', '加熱しても分解しない（熱に安定）', '十水和物は風解性を示す'],
+      ng: [['加熱すると分解して二酸化炭素を発生する', '熱に安定。分解するのは NaHCO₃'], ['水に溶けにくい', '水によく溶ける'], ['十水和物は潮解性を示す', '十水和物は風解性を示す'], ['水溶液は弱酸性を示す', '塩基性'], ['十水和物は空気中で水を吸って、べとべとになる', '水を失う（風解）']],
+      note: '十水和物 Na₂CO₃·10H₂O は、空気中で水和水の一部を失う（風解）。' },
+    { id: 'nahco3', g: 'tm', name: '炭酸水素ナトリウム', f: 'NaHCO3', look: 'solid', liq: '#fafaf6', where: '広口びん（白い粉末）',
+      n: '固体', tags: [['baking', 0], ['heatCO2', 1], ['weakBase', 2], ['white', -1], ['flameYellow', -1]],
+      ok: ['重曹ともよばれ、ベーキングパウダーや胃腸薬に使われる', '加熱すると分解して二酸化炭素を発生する', '水溶液は弱塩基性を示す', 'アンモニアソーダ法の途中で沈殿として得られる', '塩酸と反応して二酸化炭素を発生する', 'ナトリウムの化合物なので、炎色反応は黄色'],
+      ng: [['水溶液は強酸性を示す', '弱塩基性'], ['加熱しても分解しない', 'それは炭酸ナトリウム'], ['石灰石の主成分である', 'それは炭酸カルシウム'], ['水溶液は強塩基性を示す', '弱塩基性'], ['加熱すると分解して、酸素を発生する', 'CO₂ と H₂O を出す']],
+      note: '2NaHCO₃ → Na₂CO₃ ＋ H₂O ＋ CO₂。アンモニアソーダ法の途中でも生じる。' },
+    { id: 'cao', g: 'tm', name: '酸化カルシウム', f: 'CaO', look: 'solid', liq: '#efede6', where: '広口びん（白い固体）',
+      n: '固体', tags: [['quicklime', 0], ['heatWithWater', 1], ['drying', 4], ['white', -1]],
+      ok: ['生石灰ともよばれる', '水と反応して水酸化カルシウムになる（発熱する）', '石灰石を焼いて（熱分解して）つくる', '塩基性酸化物である', '乾燥剤に使われる', '酸と反応して塩と水になる'],
+      ng: [['消石灰ともよばれる', '消石灰は Ca(OH)₂'], ['酸性酸化物である', '塩基性酸化物'], ['水に入れても変化しない', '水と反応して Ca(OH)₂ になる'], ['水と反応すると、熱を吸収する', '発熱する'], ['石灰石に塩酸を加えてつくる', '石灰石を焼いてつくる']],
+      note: 'CaCO₃ → CaO ＋ CO₂。塩基性の乾燥剤にも使われる。' },
+    { id: 'caoh2', g: 'tm', name: '水酸化カルシウム', f: 'Ca(OH)2', look: 'solid', liq: '#f6f6f2', where: '広口びん（白い粉末）',
+      n: '固体', tags: [['slakedlime', 0], ['strongBase', 1], ['white', 0]],
+      ok: ['消石灰ともよばれる白い粉末', '水溶液は石灰水とよばれ、強塩基性を示す', '石灰水は二酸化炭素を吸収して白くにごる', '塩化アンモニウムと加熱すると、アンモニアが発生する', '加熱すると水を失って、酸化カルシウムになる'],
+      ng: [['生石灰ともよばれる', '生石灰は CaO'], ['水溶液は弱酸性を示す', '強塩基性'], ['炎色反応は黄緑色', 'Ca は橙赤色。黄緑色は Ba'], ['石灰水は二酸化炭素を吸収して、青くなる', '白くにごる'], ['水によく溶けて、濃い水溶液をつくる', '水に少ししか溶けない']],
+      note: 'Ca(OH)₂ ＋ CO₂ → CaCO₃ ＋ H₂O（CO₂ の検出）' },
+    { id: 'caco3', g: 'tm', name: '炭酸カルシウム', f: 'CaCO3', look: 'solid', liq: '#ece8dc', where: '広口びん（白い固体）',
+      n: '固体', tags: [['limestone', 0], ['heatCO2', 3], ['insoluble', 1], ['white', -1]],
+      ok: ['石灰石・大理石の主成分', '水に溶けにくいが、二酸化炭素を含む水には溶ける', '塩酸と反応して二酸化炭素を発生する', '加熱すると分解して、酸化カルシウムになる', 'セメントやガラスの原料になる', 'カルシウムの化合物なので、炎色反応は橙赤色'],
+      ng: [['水によく溶ける', '水に溶けにくい'], ['加熱しても分解しない', '加熱すると CaO と CO₂ に分解する'], ['重曹ともよばれる', '重曹は NaHCO₃'], ['二酸化炭素をふくむ水にも、まったく溶けない', '炭酸水素カルシウムになって溶ける'], ['炎色反応は黄緑色', '橙赤色']],
+      note: 'CO₂ を含む水に溶けて Ca(HCO₃)₂ になる反応は、鍾乳洞のでき方に関係する。' },
+    { id: 'cacl2', g: 'tm', name: '塩化カルシウム', f: 'CaCl2', look: 'solid', liq: '#f6f6f2', where: '広口びん（白色の粒）',
+      n: '固体', tags: [['notForNH3', 2], ['flameOrange', 3], ['deliquescent', 0], ['drying', 1], ['white', -1]],
+      ok: ['潮解性がある', '乾燥剤として使われる', 'アンモニアと反応するので、アンモニアの乾燥には使えない', '炎色反応は橙赤色を示す', '水によく溶ける', '凍結防止剤（融雪剤）に使われる', 'アンモニアソーダ法で副生する'],
+      ng: [['水に溶けにくい', '水によく溶ける'], ['炎色反応は黄色を示す', '黄色は Na'], ['どんな気体の乾燥にも使える', 'NH₃ の乾燥には使えない'], ['アンモニアの乾燥剤に適している', 'NH₃ と反応するので使えない'], ['風解性がある', '潮解性']],
+      note: 'CaCl₂ は NH₃ と結びつく（CaCl₂·8NH₃ など）ので、NH₃ の乾燥には使えない。' },
+    { id: 'caso4', g: 'tm', name: 'セッコウ', f: 'CaSO4·2H2O', look: 'solid', liq: '#f2f0ea', where: '広口びん（白い粉末）',
+      n: '固体', tags: [['gypsum', 2], ['insoluble', 1], ['white', -1]],
+      ok: ['硫酸カルシウム二水和物である', '水に溶けにくい', '加熱すると焼きセッコウ CaSO₄·½H₂O になる', '焼きセッコウに水を加えると、再びセッコウになって固まる', 'カルシウムの化合物なので、炎色反応は橙赤色'],
+      ng: [['水によく溶ける', '水に溶けにくい'], ['炎色反応は黄色', 'Ca は橙赤色'], ['胃の X 線造影剤に使われる', 'それは硫酸バリウム'], ['焼きセッコウに水を加えても固まらない', 'セッコウにもどって固まる'], ['加熱すると生石灰になる', '焼きセッコウになる']],
+      note: '焼きセッコウに水を加えると、再びセッコウになって固まる（ギプスや塑像に利用）。' },
+    { id: 'baso4', g: 'tm', name: '硫酸バリウム', f: 'BaSO4', look: 'solid', liq: '#fbfbf8', where: '広口びん（白い粉末）',
+      n: '固体', tags: [['xray', 1], ['insoluble', 0], ['white', 0]],
+      ok: ['水や酸に溶けにくい白い固体', 'X 線の造影剤に使われる', 'Ba²⁺ を含む水溶液に硫酸を加えると沈殿する', 'バリウムの化合物なので、炎色反応は黄緑色', 'アルカリ土類金属の硫酸塩は、水に溶けにくい'],
+      ng: [['水によく溶ける', '水にも酸にも溶けにくい'], ['炎色反応は橙赤色', 'Ba は黄緑色'], ['毒性が強いので造影剤には使えない', '水に溶けないので造影剤に使える'], ['酸によく溶ける', '酸にも溶けにくい'], ['Ba²⁺ をふくむ水溶液に塩酸を加えると沈殿する', '硫酸（SO₄²⁻）で沈殿する']],
+      note: 'アルカリ土類金属や Pb の硫酸塩は、水に溶けにくい。' },
+    { id: 'al', g: 'tm', name: 'アルミニウム', f: 'Al', look: 'solid', liq: '#c8ced6', where: '広口びん（銀白色の粉末）',
+      n: '金属', tags: [['amphoteric', 0], ['light', -1], ['passivity', 1]],
+      ok: ['両性金属で、酸とも強塩基とも反応する', '濃硝酸には不動態になり溶けない', '酸化アルミニウムの溶融塩電解でつくる', 'テルミット反応で、酸化鉄(Ⅲ)を還元する', '三価の陽イオン Al³⁺ になる'],
+      ng: [['濃硝酸に激しく溶ける', '不動態になり溶けない'], ['二価の陽イオンになりやすい', '三価の陽イオン Al³⁺'], ['石油中に保存する', '表面の酸化被膜が内部を守るので不要'], ['強塩基の水溶液には溶けない', '両性金属で、強塩基にも溶ける'], ['酸化アルミニウムの水溶液を電気分解してつくる', '融かして電気分解（溶融塩電解）']],
+      note: 'Al と Fe₂O₃ の粉末に点火すると、Fe が生じる（テルミット反応）。' },
+    { id: 'zn', g: 'tm', name: '亜鉛', f: 'Zn', look: 'solid', liq: '#9aa2ac', where: '広口びん（灰色の粒）',
+      n: '金属', tags: [['tinPlate', 1], ['amphoteric', 0]],
+      ok: ['両性金属で、酸とも強塩基とも反応する', '鉄にめっきしたものをトタンという', '黄銅（しんちゅう）の成分である', '塩酸に溶けて水素を発生する', '水酸化亜鉛は、過剰のアンモニア水に溶ける'],
+      ng: [['鉄にめっきしたものをブリキという', 'ブリキはスズをめっきしたもの'], ['塩酸に溶けない', '塩酸に溶けて水素を発生する'], ['水酸化亜鉛は過剰のアンモニア水に溶けない', '溶ける。溶けないのは Al(OH)₃'], ['強塩基の水溶液には溶けない', '両性金属で、強塩基にも溶ける'], ['黄銅は、亜鉛とスズの合金である', '黄銅は銅と亜鉛（銅とスズは青銅）']],
+      note: 'トタンは傷がついても Zn が先に酸化されるので、Fe がさびにくい（イオン化傾向 Zn ＞ Fe）。' },
+    // ---- 遷移元素 ----
+    { id: 'pbo2', g: 'tm', name: '酸化鉛(Ⅳ)', f: 'PbO2', look: 'solid', liq: '#3a2a22', where: '広口びん（黒褐色の粉末）',
+      n: '固体', tags: [['leadBattery', 0], ['oxidizer', 1], ['darkBrown', 2], ['insoluble', -1]],
+      ok: ['鉛蓄電池の正極に使われる', '強い酸化作用をもつ', '黒褐色の粉末', '鉛の酸化数は ＋4', '水に溶けにくい', '鉛蓄電池が放電すると、PbSO₄ に変化する'],
+      ng: [['鉛蓄電池の負極に使われる', '負極は Pb'], ['白色の粉末', '黒褐色'], ['鉛の酸化数は ＋2', 'PbO₂ の Pb は ＋4'], ['鉛蓄電池が放電すると、Pb に変化する', 'PbSO₄ に変化する'], ['強い還元作用をもつ', '酸化作用']],
+      note: '鉛蓄電池：(−) Pb ｜ H₂SO₄ aq ｜ PbO₂ (＋)。放電すると両極とも PbSO₄ になる。' },
+    { id: 'alum', g: 'tm', name: 'ミョウバン', f: 'AlK(SO4)2·12H2O', look: 'solid', liq: '#eef2f6', where: '広口びん（無色の結晶）',
+      n: '固体', tags: [['doubleSalt', 0], ['fromAlKSulf', 1], ['acidicSol', 2], ['colorless', -1]],
+      ok: ['複塩である', '硫酸アルミニウムと硫酸カリウムの混合水溶液を濃縮するとできる', '水溶液は弱酸性を示す', '無色透明の正八面体の結晶', '水に溶けると、Al³⁺・K⁺・SO₄²⁻ に電離する', '漬物の色止めなど、食品添加物に使われる', '加熱すると結晶水を失い、焼きミョウバンになる'],
+      ng: [['錯塩である', '複塩'], ['水溶液は強塩基性を示す', '弱酸性'], ['水に溶けても電離しない', 'Al³⁺・K⁺・SO₄²⁻ に電離する'], ['硫酸アルミニウムと硫酸ナトリウムからできる', '硫酸カリウム'], ['水溶液は強酸性を示す', '弱酸性']],
+      note: '正式名は硫酸カリウムアルミニウム十二水和物。' },
+    { id: 'fe', g: 'tr', name: '鉄', f: 'Fe', look: 'solid', liq: '#7d838c', where: '広口びん（灰色の粉末）',
+      n: '金属', tags: [['passivity', 1], ['grayWhite', -1]],
+      ok: ['塩酸や希硫酸に溶けて水素を発生する', '濃硝酸には不動態になり溶けない', '鉄鉱石を一酸化炭素で還元してつくる', '赤さびの主成分は酸化鉄(Ⅲ)', '希塩酸に溶けると Fe²⁺ になる'],
+      ng: [['赤色の金属', '灰白色。赤色は銅'], ['希塩酸と反応して FeCl₃ ができる', 'FeCl₂（塩化鉄(Ⅱ)）ができる'], ['湿った空気中で緑青を生じる', '緑青は銅のさび'], ['希硫酸に溶けると Fe³⁺ になる', 'Fe²⁺ になる'], ['濃硝酸に激しく溶ける', '不動態になる']],
+      note: '溶鉱炉でできる銑鉄は炭素を約4%含みもろい。酸素を吹き込んで鋼にする。' },
+    { id: 'feso4', g: 'tr', name: '硫酸鉄(Ⅱ)七水和物', f: 'FeSO4·7H2O', look: 'solid', liq: '#cfe6c2', where: '広口びん（淡緑色の結晶）',
+      n: '固体', tags: [['paleGreen', 0], ['fe2', -1]],
+      ok: ['淡緑色の結晶', '水溶液にヘキサシアニド鉄(Ⅲ)酸カリウム水溶液を加えると濃青色の沈殿を生じる', '水溶液に NaOH 水溶液を加えると緑白色の沈殿を生じる', '水溶液中の Fe²⁺ は、空気中で酸化されて Fe³⁺ になりやすい', '水によく溶ける'],
+      ng: [['黄褐色の結晶', '淡緑色。黄褐色は Fe³⁺'], ['KSCN 水溶液を加えると血赤色になる', 'それは Fe³⁺'], ['NaOH 水溶液で赤褐色の沈殿を生じる', '赤褐色の沈殿は Fe³⁺ のとき。Fe²⁺ では緑白色の沈殿'], ['水溶液中の Fe²⁺ は空気中で安定で、酸化されにくい', '酸化されて Fe³⁺ になりやすい'], ['ヘキサシアニド鉄(Ⅱ)酸カリウムで濃青色の沈殿を生じる', 'Fe²⁺ はヘキサシアニド鉄(Ⅲ)酸カリウム']],
+      note: '緑白色の Fe(OH)₂ の沈殿は、空気中で酸化されて赤褐色に変わる。' },
+    { id: 'fecl3', g: 'tr', name: '塩化鉄(Ⅲ)水溶液', f: 'FeCl3', look: 'glass', liq: '#d9a03a', where: 'ガラスびん（黄褐色の液体）',
+      n: '水溶液', tags: [['kscn', 1], ['yellowBrown', 0], ['oxidizer', 3]],
+      ok: ['水溶液は黄褐色', 'チオシアン酸カリウム水溶液を加えると血赤色になる', 'NaOH 水溶液を加えると赤褐色の沈殿を生じる', '酸化作用がある', 'ヘキサシアニド鉄(Ⅱ)酸カリウム水溶液を加えると、濃青色の沈殿を生じる', '鉄(Ⅲ)イオン Fe³⁺ をふくむ'],
+      ng: [['水溶液は淡緑色', 'それは Fe²⁺'], ['ヘキサシアニド鉄(Ⅲ)酸カリウムで濃青色の沈殿を生じる', 'それは Fe²⁺。Fe³⁺ はヘキサシアニド鉄(Ⅱ)酸カリウムで濃青色沈殿'], ['強い還元作用を示す', '酸化作用を示す'], ['KSCN 水溶液を加えると濃青色になる', '血赤色になる'], ['NaOH 水溶液で緑白色の沈殿を生じる', '赤褐色の沈殿']],
+      note: 'フェノール類の検出（呈色反応）にも使われる。' },
+    { id: 'k4fecn6', g: 'tr', name: 'ヘキサシアニド鉄(Ⅱ)酸カリウム', f: 'K4[Fe(CN)6]', look: 'solid', liq: '#f2d43a', where: '広口びん（黄色の結晶）',
+      n: '固体', tags: [['blueWithFe3', 0], ['yellow', -1]],
+      ok: ['Fe³⁺ をふくむ水溶液に加えると、濃青色の沈殿を生じる', '黄色の結晶', '中心の鉄の酸化数は ＋2', '鉄(Ⅱ)イオンに 6 個のシアニドイオンが配位した錯イオンをふくむ', '錯イオンは正八面体形', '水によく溶ける'],
+      ng: [['Fe²⁺ をふくむ水溶液に加えると、濃青色の沈殿を生じる', 'Fe²⁺ の検出にはヘキサシアニド鉄(Ⅲ)酸カリウム'], ['中心の鉄の酸化数は ＋3', '(Ⅱ) なので ＋2'], ['錯イオンは正四面体形', '正八面体形'], ['赤色の結晶', 'それはヘキサシアニド鉄(Ⅲ)酸カリウム']],
+      note: '錯イオン [Fe(CN)₆]⁴⁻。配位数 6 で正八面体形。Fe³⁺ の検出に使う。' },
+    { id: 'k3fecn6', g: 'tr', name: 'ヘキサシアニド鉄(Ⅲ)酸カリウム', f: 'K3[Fe(CN)6]', look: 'solid', liq: '#b8322a', where: '広口びん（赤色の結晶）',
+      n: '固体', tags: [['blueWithFe2', 0], ['red', -1]],
+      ok: ['Fe²⁺ をふくむ水溶液に加えると、濃青色の沈殿を生じる', '暗赤色の結晶', '中心の鉄の酸化数は ＋3', '鉄(Ⅲ)イオンに 6 個のシアニドイオンが配位した錯イオンをふくむ', '錯イオンは正八面体形', '水によく溶ける'],
+      ng: [['Fe³⁺ をふくむ水溶液に加えると、濃青色の沈殿を生じる', 'Fe³⁺ の検出にはヘキサシアニド鉄(Ⅱ)酸カリウム'], ['中心の鉄の酸化数は ＋2', '(Ⅲ) なので ＋3'], ['黄色の結晶', 'それはヘキサシアニド鉄(Ⅱ)酸カリウム'], ['配位数は 4', '配位数は 6']],
+      note: '錯イオン [Fe(CN)₆]³⁻。Fe²⁺ の検出に使う。' },
+    { id: 'cu', g: 'tr', name: '銅', f: 'Cu', look: 'solid', liq: '#c8743e', where: '広口びん（赤色の金属片）',
+      n: '金属', tags: [['red', 0], ['verdigris', 2]],
+      ok: ['赤色の金属で、電気・熱をよく導く', '塩酸や希硫酸には溶けないが、硝酸や熱濃硫酸には溶ける', '湿った空気中で緑青を生じる', '希硝酸と反応して、一酸化窒素を発生する', '電解精錬で純度を高める', '空気中で加熱すると、黒色の酸化銅(Ⅱ)になる'],
+      ng: [['塩酸に溶けて水素を発生する', 'イオン化傾向が小さく、塩酸には溶けない'], ['濃硝酸に入れると不動態になる', '不動態になるのは Al・Fe・Ni'], ['電解精錬では、純銅を陽極にする', '粗銅を陽極、純銅を陰極にする'], ['熱濃硫酸と反応して、水素を発生する', 'SO₂ が発生する'], ['空気中で加熱すると、赤色の酸化銅(Ⅱ)になる', '黒色']],
+      note: '希硝酸では NO、濃硝酸では NO₂、熱濃硫酸では SO₂ を発生して溶ける。' },
+    { id: 'fes', g: 'tr', name: '硫化鉄(Ⅱ)', f: 'FeS', look: 'solid', liq: '#2a2826', where: '広口びん（黒色の固体）',
+      n: '固体', tags: [['h2sGen', 0], ['fromFeAndS', 1], ['black', -1], ['insoluble', -1]],
+      ok: ['希硫酸（希塩酸）を加えると、硫化水素が発生する', '鉄粉と硫黄の粉末を混ぜて加熱するとできる', '黒色の固体', '水に溶けにくい', '鉄の酸化数は ＋2', 'キップの装置で硫化水素を発生させるときに使う'],
+      ng: [['希硫酸を加えると二酸化硫黄が発生する', 'H₂S が発生する'], ['黄色の固体', '黒色'], ['鉄の酸化数は ＋3', 'FeS の Fe は ＋2'], ['鉄粉と硫黄を混ぜるだけで、加熱しなくてもできる', '加熱が必要'], ['希硫酸を加えても、気体は発生しない', 'H₂S が発生する']],
+      note: 'FeS ＋ H₂SO₄ → FeSO₄ ＋ H₂S。' },
+    { id: 'cuo', g: 'tr', name: '酸化銅(Ⅱ)', f: 'CuO', look: 'solid', liq: '#262426', where: '広口びん（黒色の粉末）',
+      n: '固体', tags: [['fromCuHeat', 0], ['reducedToCu', 1], ['fromCuOH2', 2], ['black', -1], ['insoluble', -1]],
+      ok: ['銅を空気中で加熱するとできる', '水素や炭素で還元すると、銅にもどる', '水酸化銅(Ⅱ)を加熱するとできる', '黒色の粉末', '水に溶けにくい', '希硫酸に溶けて、青色の水溶液になる', '銅の酸化数は ＋2'],
+      ng: [['赤色の粉末', 'それは酸化銅(Ⅰ) Cu₂O'], ['希硫酸に溶けて、無色の水溶液になる', 'Cu²⁺ をふくむので青色'], ['銅の酸化数は ＋1', 'CuO の Cu は ＋2'], ['水素で還元すると、酸化銅(Ⅰ)になる', '銅にもどる'], ['水によく溶けて、青色の水溶液になる', '水には溶けない（希硫酸には溶ける）']],
+      note: '1000℃以上に加熱すると、赤色の酸化銅(Ⅰ) Cu₂O に変わる。' },
+    { id: 'cuoh2', g: 'tr', name: '水酸化銅(Ⅱ)', f: 'Cu(OH)2', look: 'solid', liq: '#8fc3e8', where: '広口びん（青白色の沈殿）',
+      n: '固体', tags: [['fromCuNaOH', 0], ['heatToCuO', 2], ['nh3Dissolve', 1], ['insoluble', 3], ['blueWhite', -1]],
+      ok: ['Cu²⁺ をふくむ水溶液に、NaOH 水溶液や少量のアンモニア水を加えると沈殿する', '過剰のアンモニア水に溶けて、深青色のテトラアンミン銅(Ⅱ)イオンになる', '加熱すると、黒色の酸化銅(Ⅱ)になる', '水に溶けにくい', '青白色の沈殿', '酸に溶けて、青色の Cu²⁺ の水溶液になる', 'テトラアンミン銅(Ⅱ)イオンは正方形の形をしている'],
+      ng: [['赤褐色の沈殿', 'それは Fe³⁺ をふくむ水溶液に塩基を加えたときの沈殿'], ['過剰のアンモニア水に溶けて、無色の溶液になる', '深青色の [Cu(NH₃)₄]²⁺ になる'], ['テトラアンミン銅(Ⅱ)イオンは正四面体形', '正方形'], ['加熱すると、赤色の酸化銅(Ⅰ)になる', '黒色の CuO になる'], ['過剰の NaOH 水溶液に溶ける', '両性ではないので溶けない']],
+      note: 'Cu(OH)₂ ＋ 4NH₃ → [Cu(NH₃)₄]²⁺ ＋ 2OH⁻（深青色）。' },
+    { id: 'cus', g: 'tr', name: '硫化銅(Ⅱ)', f: 'CuS', look: 'solid', liq: '#1e1c20', where: '広口びん（黒色の沈殿）',
+      n: '固体', tags: [['fromCuH2S', 0], ['insoluble', 2], ['black', -1]],
+      ok: ['Cu²⁺ をふくむ水溶液に硫化水素を通じると沈殿する（酸性でも沈殿する）', '黒色の沈殿', '水に溶けにくい', '硝酸には溶ける', '銅の酸化数は ＋2'],
+      ng: [['酸性の水溶液に硫化水素を通じても沈殿しない', 'CuS は酸性でも沈殿する（ZnS は酸性では沈殿しない）'], ['白色の沈殿', 'それは ZnS'], ['銅の酸化数は ＋1', '＋2'], ['塩酸によく溶ける', '硫化銅(Ⅱ)は塩酸には溶けない（硝酸には溶ける）']],
+      note: '酸性でも沈殿する硫化物：CuS・Ag₂S・PbS など（黒色）。' },
+    { id: 'cuso4', g: 'tr', name: '硫酸銅(Ⅱ)五水和物', f: 'CuSO4·5H2O', look: 'solid', liq: '#3d82d6', where: '広口びん（青色の結晶）',
+      n: '固体', tags: [['blue', 0], ['anhydrousWhite', 1]],
+      ok: ['青色の結晶', '加熱すると水和水を失い、白色の無水物になる', '無水物は水にふれると青色になるので、水の検出に使われる', '水溶液は青色を示す', '水溶液に NaOH 水溶液を加えると、青白色の沈殿を生じる'],
+      ng: [['無水物も青色である', '無水物は白色'], ['水溶液に NaOH 水溶液を加えると赤褐色の沈殿を生じる', '青白色の Cu(OH)₂ が沈殿する'], ['過剰のアンモニア水を加えると無色の溶液になる', '深青色（テトラアンミン銅(Ⅱ)イオン）'], ['加熱すると、赤色の無水物になる', '白色'], ['水溶液に硫化水素を通じると、白色の沈殿を生じる', '黒色の CuS']],
+      note: 'Cu(OH)₂ を加熱すると黒色の CuO になる。' },
+    { id: 'agno3', g: 'tr', name: '硝酸銀', f: 'AgNO3', look: 'brown', liq: '#f2f5f8', where: '褐色びん',
+      n: '固体', tags: [['brownBottle', 2], ['lightDecomp', 2], ['agcl', 0], ['white', -1]],
+      ok: ['水溶液に塩化物イオンを加えると白色の沈殿（AgCl）を生じる', '水溶液に NaOH 水溶液を加えると褐色の沈殿（Ag₂O）を生じる', '光で分解しやすいので、褐色びんに保存する', '銅線を入れると、表面に銀が析出する', 'AgCl の白色沈殿は、アンモニア水に溶ける'],
+      ng: [['AgCl はアンモニア水に溶けない', '溶ける。溶けないのは AgI'], ['ヨウ化銀 AgI は白色', 'AgI は黄色。AgBr は淡黄色'], ['水に溶けにくい', '水によく溶ける'], ['水溶液に NaOH 水溶液を加えると、白色の沈殿を生じる', '褐色の Ag₂O'], ['銅線を入れても変化しない', '銀が析出する']],
+      note: 'AgCl・AgBr は光で分解して銀を生じる（感光性）。' },
+    { id: 'agcl', g: 'tr', name: '塩化銀', f: 'AgCl', look: 'brown', liq: '#f2f2ee', where: '褐色びん（白い粉末）',
+      n: '固体', tags: [['agClPpt', 0], ['nh3Dissolve', 1], ['lightDecomp', 2], ['insoluble', 3], ['white', -1]],
+      ok: ['銀イオンと塩化物イオンから、白色沈殿として生じる', 'アンモニア水に溶ける（ジアンミン銀(Ⅰ)イオンになる）', '光で分解して銀が遊離し、黒くなる（感光性）', '水に溶けにくい', '白色の固体', '写真の感光材料に使われてきた', '銀の酸化数は ＋1'],
+      ng: [['淡黄色の固体', '淡黄色は AgBr'], ['アンモニア水に溶けない', '[Ag(NH₃)₂]⁺ になって溶ける'], ['水によく溶ける', '水に溶けにくい'], ['光に当てても変化しない', '感光性がある'], ['銀の酸化数は ＋2', '＋1']],
+      note: 'AgCl ＋ 2NH₃ → [Ag(NH₃)₂]⁺ ＋ Cl⁻。' },
+    { id: 'ag2o', g: 'tr', name: '酸化銀', f: 'Ag2O', look: 'solid', liq: '#5a3e2c', where: '広口びん（褐色の粉末）',
+      n: '固体', tags: [['fromAgNaOH', 0], ['nh3Dissolve', 1], ['insoluble', 3], ['brownish', -1]],
+      ok: ['硝酸銀水溶液に NaOH 水溶液を加えると沈殿する', 'アンモニア水に溶けて、ジアンミン銀(Ⅰ)イオンになる', '褐色の固体', '水に溶けにくい', '銀の酸化数は ＋1', 'ジアンミン銀(Ⅰ)イオンは直線形をしている', '加熱すると分解して、銀を生じる'],
+      ng: [['白色の沈殿', '褐色'], ['AgOH として沈殿する', 'AgOH は不安定で、Ag₂O として沈殿する'], ['ジアンミン銀(Ⅰ)イオンは正方形', '直線形'], ['アンモニア水には溶けない', '[Ag(NH₃)₂]⁺ になって溶ける'], ['銀の酸化数は ＋2', '＋1']],
+      note: '2Ag⁺ ＋ 2OH⁻ → Ag₂O ＋ H₂O。Ag₂O ＋ 4NH₃ ＋ H₂O → 2[Ag(NH₃)₂]⁺ ＋ 2OH⁻。' },
+    { id: 'agbr', g: 'tr', name: '臭化銀', f: 'AgBr', look: 'brown', liq: '#f2ecc0', where: '褐色びん（淡黄色の粉末）',
+      n: '固体', tags: [['fromAgBr', 0], ['lightDecomp', 1], ['insoluble', 2], ['nh3Dissolve', -1], ['paleYellow', -1]],
+      ok: ['Ag⁺ と Br⁻ から、淡黄色の沈殿として生じる', '光で分解して、銀を生じる（感光性）', '水に溶けにくい', '写真のフィルムに使われてきた', '淡黄色の固体', '銀の酸化数は ＋1'],
+      ng: [['白色の固体', 'それは AgCl'], ['光に当てても変化しない', '感光性がある'], ['Ag⁺ と Cl⁻ からできる', 'Br⁻ からできる'], ['水によく溶ける', '水に溶けにくい（よく溶けるのは AgF）']],
+      note: 'ハロゲン化銀の色：AgCl 白・AgBr 淡黄・AgI 黄（AgF は水に溶ける）。' },
+    { id: 'k2cro4', g: 'tr', name: 'クロム酸カリウム', f: 'K2CrO4', look: 'solid', liq: '#f0d03c', where: '広口びん（黄色の結晶）',
+      n: '固体', tags: [['yellow', 0], ['yellowPpt', 1]],
+      ok: ['黄色の結晶で、水溶液も黄色', 'Ba²⁺・Pb²⁺ と黄色の沈殿をつくる', '酸を加えると赤橙色の二クロム酸イオンになる', 'クロムの酸化数は ＋6', 'Ag⁺ と暗赤色の沈殿をつくる'],
+      ng: [['水溶液は赤紫色', 'それは過マンガン酸イオン'], ['酸を加えると、クロムの酸化数が変わる', '＋6 のまま変わらない'], ['Ag⁺ と白色の沈殿をつくる', 'Ag₂CrO₄ は暗赤色'], ['Pb²⁺ と白色の沈殿をつくる', '黄色の PbCrO₄'], ['酸を加えると、緑色になる', '赤橙色の Cr₂O₇²⁻ になる']],
+      note: '2CrO₄²⁻ ＋ 2H⁺ → Cr₂O₇²⁻ ＋ H₂O（黄色 → 赤橙色）' },
+    { id: 'k2cr2o7', g: 'tr', name: '二クロム酸カリウム', f: 'K2Cr2O7', look: 'solid', liq: '#e8782a', where: '広口びん（赤橙色の結晶）',
+      n: '固体', tags: [['fromCrO4Acid', 1], ['toCr3', 2], ['oxidizer', 0], ['orangeRed', -1]],
+      ok: ['硫酸酸性の水溶液中で、強い酸化剤としてはたらく', 'クロム酸カリウム水溶液に酸を加えるとできる', '酸化剤としてはたらくと、緑色の Cr³⁺ になる', '赤橙色の結晶', 'クロムの酸化数は ＋6', '塩基を加えると、黄色のクロム酸イオンになる'],
+      ng: [['クロムの酸化数は ＋7', '＋6'], ['酸化剤としてはたらくと、無色の Mn²⁺ になる', 'それは KMnO₄。Cr³⁺（緑色）になる'], ['塩基を加えても色は変わらない', '黄色の CrO₄²⁻ になる'], ['還元剤としてはたらく', '酸化剤']],
+      note: 'Cr₂O₇²⁻ ＋ 14H⁺ ＋ 6e⁻ → 2Cr³⁺ ＋ 7H₂O。' },
+    { id: 'kmno4', g: 'tr', name: '過マンガン酸カリウム', f: 'KMnO4', look: 'solid', liq: '#4a1458', where: '広口びん（黒紫色の結晶）',
+      n: '固体', tags: [['redPurple', 0], ['blackPurple', 0], ['oxidizer', 1]],
+      ok: ['黒紫色の結晶で、水溶液は赤紫色', '硫酸酸性の水溶液中で強い酸化作用を示す', '酸化剤としてはたらくと、ほぼ無色の Mn²⁺ になる', 'マンガンの酸化数は ＋7', '酸化還元滴定では、赤紫色が消えなくなったところが終点'],
+      ng: [['水溶液は黄色', '赤紫色（MnO₄⁻）'], ['還元剤としてはたらく', '酸化剤'], ['黒色の粉末で、過酸化水素の分解の触媒になる', 'それは酸化マンガン(Ⅳ)'], ['酸化剤としてはたらくと、赤紫色の Mn²⁺ になる', 'ほぼ無色'], ['マンガンの酸化数は ＋4', '＋7（＋4 は MnO₂）']],
+      note: '酸化還元滴定では、赤紫色が消えなくなったところを終点とする。' },
+    { id: 'mno2', g: 'tr', name: '酸化マンガン(Ⅳ)', f: 'MnO2', look: 'solid', liq: '#2c2a2e', where: '広口びん（黒色の粉末）',
+      n: '固体', tags: [['black', 0], ['catalystH2O2', 1], ['insoluble', -1], ['oxidizer', 2]],
+      ok: ['黒色の粉末', '過酸化水素水や塩素酸カリウムの分解で触媒になる', '濃塩酸と加熱すると塩素が発生する', '乾電池の正極に使われる', 'マンガンの酸化数は ＋4', '水に溶けない'],
+      ng: [['赤紫色の結晶', 'それは過マンガン酸カリウム'], ['水によく溶ける', '水に溶けない'], ['触媒なので、どの反応でも変化しない', '濃塩酸との反応では酸化剤として変化する'], ['濃塩酸と加熱すると、水素が発生する', '塩素が発生する'], ['マンガンの酸化数は ＋7', '＋4']],
+      note: '乾電池の正極にも使われる。' },
+  ];
+
+  // 博士が性質で頼むときのことば（[文の途中, 名詞の前]）
+  const CLUE = {
+    brownBottle: ['褐色びんに入れてあり', '褐色びんに入れてある'], lightDecomp: ['光で分解しやすく', '光で分解しやすい'],
+    oxidizer: ['酸化作用が強く', '酸化作用の強い'], volatile: ['揮発性で', '揮発性の'], nonvolatile: ['不揮発性で', '不揮発性の'],
+    drying: ['乾燥剤に使われ', '乾燥剤に使われる'], dehydrate: ['脱水作用があり', '脱水作用のある'],
+    whiteSmokeNH3: ['アンモニアに近づけると白煙が出て', 'アンモニアに近づけると白煙が出る'],
+    whiteSmokeHCl: ['濃塩酸に近づけると白煙が出て', '濃塩酸に近づけると白煙が出る'],
+    strongAcid: ['強酸で', '強い'], weakAcid: ['弱酸で', '弱い'], glassAttack: ['ガラスを溶かし', 'ガラスを溶かす'],
+    polyBottle: ['ポリエチレン容器に入れてあり', 'ポリエチレン容器に入れてある'],
+    yellowGreen: ['黄緑色で', '黄緑色の'], pungent: ['刺激臭があり', '刺激臭のある'], toxic: ['有毒で', '有毒な'],
+    heavier: ['空気より重く', '空気より重い'], bleach: ['漂白作用があり', '漂白作用のある'], liquidRT: ['常温で液体であり', '常温で液体である'],
+    redBrown: ['赤褐色で', '赤褐色の'], starch: ['デンプンと反応して青紫色になり', 'デンプンと反応して青紫色になる'],
+    sublime: ['昇華性があり', '昇華性のある'], blackPurple: ['黒紫色で', '黒紫色の'],
+    mno2O2: ['酸化マンガン(Ⅳ)を加えると酸素が出て', '酸化マンガン(Ⅳ)を加えると酸素が出る'],
+    weakBase: ['弱塩基性を示し', '弱塩基性を示す'], strongBase: ['強塩基性を示し', '強塩基性を示す'],
+    selfIgnite: ['空気中で自然発火し', '空気中で自然発火する'], underWater: ['水中に保存し', '水中に保存する'],
+    match: ['マッチ箱の側薬に使われ', 'マッチ箱の側薬に使われる'], yellow: ['黄色で', '黄色の'],
+    blueFlame: ['燃やすと青い炎を出し', '燃やすと青い炎を出す'], white: ['白色で', '白い'], insoluble: ['水に溶けにくく', '水に溶けにくい'],
+    fromPhosphorus: ['リンを燃やすとでき', 'リンを燃やすとできる'], waterNitric: ['水と反応して硝酸になり', '水と反応して硝酸になる'],
+    eggSmell: ['腐卵臭があり', '腐卵臭のある'], reducing: ['還元作用があり', '還元作用のある'],
+    limewater: ['石灰水を白くにごらせ', '石灰水を白くにごらせる'], odorless: ['無臭で', '無臭の'], colorless: ['無色で', '無色の'],
+    viscous: ['粘り気があり', '粘り気のある'], silicate: ['塩酸を加えるとケイ酸が遊離し', '塩酸を加えるとケイ酸が遊離する'],
+    fromSilicic: ['ケイ酸を乾燥させてつくり', 'ケイ酸を乾燥させてつくる'], inOil: ['石油中に保存し', '石油中に保存する'],
+    waterViolent: ['水と激しく反応し', '水と激しく反応する'], flameYellow: ['炎色反応が黄色で', '炎色反応が黄色の'], light: ['軽く', '軽い'],
+    deliquescent: ['潮解性があり', '潮解性のある'], solvay: ['アンモニアソーダ法でつくられ', 'アンモニアソーダ法でつくられる'],
+    glassRaw: ['ガラスの原料になり', 'ガラスの原料になる'], heatCO2: ['加熱すると CO₂ を出し', '加熱すると CO₂ を出す'],
+    baking: ['重曹ともよばれ', '重曹ともよばれる'], quicklime: ['生石灰ともよばれ', '生石灰ともよばれる'],
+    heatWithWater: ['水を加えると発熱し', '水を加えると発熱する'], slakedlime: ['消石灰ともよばれ', '消石灰ともよばれる'],
+    limestone: ['石灰石や大理石の主成分で', '石灰石や大理石の主成分の'], gypsum: ['加熱すると焼きセッコウになり', '加熱すると焼きセッコウになる'],
+    xray: ['X 線造影剤に使われ', 'X 線造影剤に使われる'], amphoteric: ['酸とも強塩基とも反応し', '酸とも強塩基とも反応する'],
+    passivity: ['濃硝酸に入れると不動態になり', '濃硝酸に入れると不動態になる'], tinPlate: ['トタンのめっきに使われ', 'トタンのめっきに使われる'],
+    grayWhite: ['灰白色で', '灰白色の'], paleGreen: ['淡緑色で', '淡緑色の'], fe2: ['水溶液が Fe²⁺ をふくみ', '水溶液が Fe²⁺ をふくむ'],
+    yellowBrown: ['黄褐色で', '黄褐色の'], kscn: ['KSCN で血赤色になり', 'KSCN で血赤色になる'], red: ['赤色で', '赤色の'],
+    verdigris: ['湿った空気中で緑青を生じ', '湿った空気中で緑青を生じる'], blue: ['青色で', '青色の'],
+    anhydrousWhite: ['加熱すると白色の無水物になり', '加熱すると白色の無水物になる'],
+    agcl: ['塩化物イオンと白い沈殿をつくり', '塩化物イオンと白い沈殿をつくる'],
+    yellowPpt: ['Pb²⁺ や Ba²⁺ と黄色の沈殿をつくり', 'Pb²⁺ や Ba²⁺ と黄色の沈殿をつくる'],
+    redPurple: ['水溶液が赤紫色で', '水溶液が赤紫色の'], black: ['黒色で', '黒色の'],
+    halogen: ['ハロゲンの単体で', 'ハロゲンの単体である'], freesI2: ['ヨウ化カリウム水溶液からヨウ素を遊離させ', 'ヨウ化カリウム水溶液からヨウ素を遊離させる'],
+    bleachAgent: ['漂白剤や殺菌剤に使われ', '漂白剤や殺菌剤に使われる'], hclGivesCl2: ['塩酸を加えると塩素が発生し', '塩酸を加えると塩素が発生する'],
+    fromClWater: ['塩素を水に溶かすとでき', '塩素を水に溶かすとできる'],
+    supportsCombust: ['ものが燃えるのを助けるはたらきがあり', 'ものが燃えるのを助けるはたらきのある'],
+    fromH2O2: ['過酸化水素水に酸化マンガン(Ⅳ)を加えると発生し', '過酸化水素水に酸化マンガン(Ⅳ)を加えると発生する'],
+    ozoneAllotrope: ['オゾンと同素体の関係にあり', 'オゾンと同素体の関係にある'],
+    specialSmell: ['特異臭があり', '特異臭のある'], fromSilent: ['酸素中で無声放電を行うとでき', '酸素中で無声放電を行うとできる'],
+    ozoneLayer: ['上空でオゾン層をつくり', '上空でオゾン層をつくる'], paleBlue: ['淡青色で', '淡青色の'],
+    air78: ['空気の体積の約 78％ をしめ', '空気の体積の約 78％ をしめる'], inert: ['常温では反応しにくく', '常温では反応しにくい'],
+    nh4no2: ['亜硝酸アンモニウムを加熱すると発生し', '亜硝酸アンモニウムを加熱すると発生する'],
+    haberRaw: ['ハーバー・ボッシュ法の原料になり', 'ハーバー・ボッシュ法の原料になる'],
+    airBrown: ['空気にふれると赤褐色になり', '空気にふれると赤褐色になる'], fromDiluteHNO3: ['銅に希硝酸を加えると発生し', '銅に希硝酸を加えると発生する'],
+    waterCollect: ['水上置換で集め', '水上置換で集める'],
+    hemoglobin: ['ヘモグロビンと強く結びつき', 'ヘモグロビンと強く結びつく'], fromFormic: ['ギ酸を濃硫酸で脱水すると発生し', 'ギ酸を濃硫酸で脱水すると発生する'],
+    notForNH3: ['アンモニアの乾燥には使えず', 'アンモニアの乾燥には使えない'], flameOrange: ['炎色反応が橙赤色で', '炎色反応が橙赤色の'],
+    leadBattery: ['鉛蓄電池の正極に使われ', '鉛蓄電池の正極に使われる'], darkBrown: ['黒褐色で', '黒褐色の'],
+    fromCaOH2Cl2: ['水酸化カルシウムに塩素を吸収させてつくり', '水酸化カルシウムに塩素を吸収させてつくる'],
+    lightest: ['最も軽く', '最も軽い'], fromZnAcid: ['亜鉛に希硫酸を加えると発生し', '亜鉛に希硫酸を加えると発生する'],
+    burnsWater: ['燃えると水だけを生じ', '燃えると水だけを生じる'],
+    nh3Gen: ['水酸化カルシウムと加熱するとアンモニアが発生し', '水酸化カルシウムと加熱するとアンモニアが発生する'],
+    fromNH3HCl: ['アンモニアと塩化水素からでき', 'アンモニアと塩化水素からできる'], acidicSol: ['水溶液が弱酸性を示し', '水溶液が弱酸性を示す'],
+    doubleSalt: ['複塩で', '複塩の'], fromAlKSulf: ['硫酸アルミニウムと硫酸カリウムからでき', '硫酸アルミニウムと硫酸カリウムからできる'],
+    h2sGen: ['希硫酸を加えると硫化水素が発生し', '希硫酸を加えると硫化水素が発生する'], fromFeAndS: ['鉄と硫黄を加熱するとでき', '鉄と硫黄を加熱するとできる'],
+    fromCuHeat: ['銅を空気中で加熱するとでき', '銅を空気中で加熱するとできる'], reducedToCu: ['水素で還元すると銅になり', '水素で還元すると銅になる'],
+    fromCuOH2: ['水酸化銅(Ⅱ)を加熱するとでき', '水酸化銅(Ⅱ)を加熱するとできる'],
+    agClPpt: ['銀イオンと塩化物イオンからでき', '銀イオンと塩化物イオンからできる'], nh3Dissolve: ['アンモニア水に溶け', 'アンモニア水に溶ける'],
+    fromCuNaOH: ['銅(Ⅱ)イオンをふくむ水溶液に NaOH 水溶液を加えるとでき', '銅(Ⅱ)イオンをふくむ水溶液に NaOH 水溶液を加えるとできる'],
+    heatToCuO: ['加熱すると酸化銅(Ⅱ)になり', '加熱すると酸化銅(Ⅱ)になる'], blueWhite: ['青白色で', '青白色の'],
+    fromCuH2S: ['銅(Ⅱ)イオンをふくむ水溶液に硫化水素を通じるとでき', '銅(Ⅱ)イオンをふくむ水溶液に硫化水素を通じるとできる'],
+    fromAgNaOH: ['硝酸銀水溶液に NaOH 水溶液を加えるとでき', '硝酸銀水溶液に NaOH 水溶液を加えるとできる'], brownish: ['褐色で', '褐色の'],
+    fromAgBr: ['銀イオンと臭化物イオンからでき', '銀イオンと臭化物イオンからできる'], paleYellow: ['淡黄色で', '淡黄色の'],
+    fromFe3Base: ['鉄(Ⅲ)イオンをふくむ水溶液に塩基を加えるとでき', '鉄(Ⅲ)イオンをふくむ水溶液に塩基を加えるとできる'],
+    blueWithFe3: ['Fe³⁺ と濃青色の沈殿をつくり', 'Fe³⁺ と濃青色の沈殿をつくる'], blueWithFe2: ['Fe²⁺ と濃青色の沈殿をつくり', 'Fe²⁺ と濃青色の沈殿をつくる'],
+    fromCrO4Acid: ['クロム酸カリウム水溶液に酸を加えるとでき', 'クロム酸カリウム水溶液に酸を加えるとできる'],
+    toCr3: ['酸化剤としてはたらくと Cr³⁺ になり', '酸化剤としてはたらくと Cr³⁺ になる'], orangeRed: ['赤橙色で', '赤橙色の'],
+    catalystH2O2: ['過酸化水素の分解の触媒になり', '過酸化水素の分解の触媒になる'],
+  };
+  // 絵やびんの種類を見れば分かってしまう性質（色・保存容器・状態）は、博士の依頼には使わない
+  const VISUAL = new Set(['brownBottle', 'polyBottle', 'underWater', 'inOil', 'liquidRT',
+    'yellowGreen', 'redBrown', 'blackPurple', 'yellow', 'white', 'colorless', 'grayWhite', 'paleGreen', 'yellowBrown', 'red', 'blue', 'black', 'paleBlue', 'darkBrown', 'blueWhite', 'brownish', 'paleYellow', 'orangeRed']);
+  const clueTags = r => r.tags.map(t => t[0]).filter(t => !VISUAL.has(t));
+  // rival が target の依頼用の性質をすべて持っていたら、どう頼んでも区別できない
+  const canTell = (target, rival) => { const ts = new Set(rival.tags.map(t => t[0])); return !clueTags(target).every(t => ts.has(t)); };
+  // 並んだ試薬の中から target を1つに決める、いちばん少ない性質の組み合わせ
+  // sameNoun: true なら名詞（気体・酸…）が同じものだけと比べる（絵のないWord用）
+  function clueFor(target, others, sameNoun) {
+    const tags = clueTags(target);
+    const rivals = others.filter(o => o !== target && (!sameNoun || o.n === target.n));
+    const combos = k => { const out = []; const rec = (st, acc) => { if (acc.length === k) { out.push(acc); return; } for (let i = st; i < tags.length; i++) rec(i + 1, [...acc, tags[i]]); }; rec(0, []); return out; };
+    let use = tags;
+    for (let k = 1; k <= tags.length; k++) {
+      const hit = combos(k).find(c => rivals.every(o => !c.every(t => o.tags.some(x => x[0] === t))));
+      if (hit) { use = hit; break; }
+    }
+    const text = use.map((t, i) => CLUE[t][i < use.length - 1 ? 0 : 1]).join('、') + target.n;
+    const okUsed = target.tags.filter(t => use.includes(t[0]) && t[1] >= 0).map(t => t[1]);
+    return { text, okUsed };
+  }
+
+  // =========================================================
+  // 実験（反応式）  parts: 式の文字と、わくの番号  ans: わくの正解  dummy: ダミーのタイル
+  // 数字の答えは係数のわく［　］、それ以外は化学式のわく□  fx: ステージの演出
+  // =========================================================
+  const X = (say, parts, ans, dummy, note, fx) => ({ say, parts, ans, dummy, note, fx });
+  // 何段階かの反応式を続けて完成させる実験（工業的製法など）
+  const CHAIN = (say, steps) => ({ say, chain: steps });
+  const COEF = '係数を［　］に、化学式を□に入れておくれ。';
+  const RX = {
+    hno3: [
+      X('この濃硝酸で、銅を溶かしてみるぞい。', ['Cu +', 0, 'HNO3 →', 1, '+ 2H2O + 2NO2'], ['4', 'Cu(NO3)2'], ['2', '6', 'CuNO3', 'Cu(NO3)3', 'CuO'],
+        '濃硝酸では赤褐色の NO₂、希硝酸では無色の NO が発生する。', 'brownGas'),
+      X('濃硝酸をうすめて希硝酸にし、銅を溶かすぞい。', ['3Cu +', 0, 'HNO3 → 3Cu(NO3)2 + 4H2O +', 1, 2], ['8', '2', 'NO'], ['4', '6', 'NO2', 'N2O', 'N2'],
+        '希硝酸と銅では一酸化窒素 NO が発生する。NO は空気にふれると NO₂ になる。', 'bubbles'),
+      CHAIN('濃硝酸が残り少ないのう。工場と同じオストワルト法で、アンモニアから硝酸をつくるぞい。3つの段階を順に完成させておくれ。', [
+        X('第1段階：アンモニアを白金触媒で酸化して、一酸化窒素にする。', [0, 'NH3 +', 1, 'O2 →', 2, 3, '+ 6H2O'], ['4', '5', '4', 'NO'], ['2', '3', 'NO2', 'N2', 'N2O'],
+          '白金を触媒にして、約800℃で反応させる。', 'steam'),
+        X('第2段階：一酸化窒素を空気中の酸素で酸化して、二酸化窒素にする。', [0, 'NO + O2 →', 1, 2], ['2', '2', 'NO2'], ['3', '4', 'N2O', 'NO3', 'N2O4'],
+          '無色の NO が、赤褐色の NO₂ に変わる。', 'brownGas'),
+        X('第3段階：二酸化窒素を水に吸収させて、硝酸にする。', [0, 'NO2 + H2O →', 1, 2, '+ NO'], ['3', '2', 'HNO3'], ['4', '6', 'HNO2', 'NH3', 'N2O5'],
+          '出てきた NO は第2段階にもどして、また使う。', 'steam'),
+      ]),
+    ],
+    h2so4: [
+      X('熱した濃硫酸に、銅を入れてみるぞい。', ['Cu +', 0, 'H2SO4 →', 1, '+ 2H2O + SO2'], ['2', 'CuSO4'], ['3', '4', 'CuSO3', 'CuS', 'Cu2SO4'],
+        '熱濃硫酸は酸化作用が強く、銅を溶かして二酸化硫黄 SO₂ を発生させる。', 'whiteFume'),
+      X('濃硫酸の脱水作用で、砂糖を炭にするぞい。', ['C12H22O11 →', 0, 1, '+', 2, 'H2O'], ['12', 'C', '11'], ['6', '22', 'CO2', 'CO', 'H2'],
+        '濃硫酸が H と O を水の形でうばうので、炭素 C が残って黒くなる。', 'black'),
+      X('硫酸は工場では接触法でつくるんじゃ。まず二酸化硫黄を酸化するぞい。', [0, 'SO2 + O2 →', 1, 2], ['2', '2', 'SO3'], ['3', '4', 'SO4', 'S2O3', 'H2SO3'],
+        '触媒は V₂O₅。できた SO₃ を濃硫酸に吸収させて発煙硫酸とし、希硫酸でうすめて濃硫酸にする。', 'whiteFume'),
+    ],
+    hcl: [
+      X('濃塩酸と酸化マンガン(Ⅳ)を加熱して、塩素をつくるぞい。', ['MnO2 +', 0, 'HCl →', 1, '+ 2H2O + Cl2'], ['4', 'MnCl2'], ['2', '6', 'MnCl4', 'MnO', 'H2'],
+        'MnO₂ は酸化剤としてはたらく。発生した Cl₂ は水・濃硫酸の順に通して、下方置換で集める。', 'yellowGas'),
+      X('塩酸に亜鉛を入れて、水素を出すぞい。', ['Zn +', 0, 'HCl →', 1, '+ H2'], ['2', 'ZnCl2'], ['3', '4', 'ZnCl', 'ZnH2', 'Cl2'],
+        '水素よりイオン化傾向の大きい金属は、塩酸と反応して水素を発生する。', 'bubbles'),
+    ],
+    hf: [
+      X('フッ化水素酸でガラス板に模様を描くぞい。', ['SiO2 +', 0, 'HF →', 1, '+ 2H2O'], ['6', 'H2SiF6'], ['2', '4', 'SiF4', 'SiH4', 'H2SiO3'],
+        'ガラスの主成分 SiO₂ が溶けて、ヘキサフルオロケイ酸 H₂SiF₆ になる。', 'frost'),
+      X('ホタル石に濃硫酸を加えて、フッ化水素をつくるぞい。', ['CaF2 + H2SO4 →', 0, '+', 1, 'HF'], ['CaSO4', '2'], ['3', '4', 'CaS', 'Ca(OH)2', 'F2'],
+        'ホタル石の主成分はフッ化カルシウム CaF₂。', 'whiteFume'),
+    ],
+    cl2: [
+      X('塩素を臭化カリウム水溶液に通すぞい。', ['Cl2 +', 0, 'KBr →', 1, 2, '+ Br2'], ['2', '2', 'KCl'], ['3', '4', 'KClO', 'K2Cl', 'Br'],
+        '酸化力は Cl₂ ＞ Br₂。Cl₂ が Br⁻ を酸化して、臭素が遊離する（溶液が赤褐色に）。', 'brownSol'),
+      X('熱した鉄を、塩素の中に入れるぞい。', ['2Fe +', 0, 'Cl2 →', 1, 2], ['3', '2', 'FeCl3'], ['4', '6', 'FeCl2', 'Fe2Cl3', 'FeCl'],
+        '塩素は酸化力が強いので、鉄は Fe³⁺ まで酸化されて塩化鉄(Ⅲ)になる。', 'sparks'),
+      CHAIN('塩素は工場では、塩化ナトリウム水溶液を電気分解してつくるんじゃ。陽極と陰極で起こる反応を、それぞれイオン反応式で完成させておくれ。', [
+        X('陽極（＋）：塩化物イオンが電子を失って、塩素が発生する。', [0, 'Cl^- →', 1, '+ 2e^-'], ['2', 'Cl2'], ['3', '4', 'Cl', 'HCl', 'O2'],
+          '陽極では酸化反応が起こる。', 'yellowGas'),
+        X('陰極（−）：水分子が電子を受け取って、水素が発生する。', [0, 'H2O + 2e^- →', 1, '+ 2OH^-'], ['2', 'H2'], ['3', '4', 'O2', 'Na', 'H^+'],
+          '陰極では還元反応が起こる。Na⁺ はイオン化傾向が大きいので還元されず、かわりに水が還元される。陰極側に NaOH ができる（イオン交換膜法）。', 'bubbles'),
+      ]),
+    ],
+    br2: [
+      X('臭素をヨウ化カリウム水溶液に加えるぞい。', ['Br2 +', 0, 'KI → 2KBr +', 1], ['2', 'I2'], ['3', '4', 'KI3', 'I', 'Br'],
+        '酸化力は Br₂ ＞ I₂ なので、Br₂ が I⁻ を酸化してヨウ素 I₂ を遊離させる。', 'brownSol'),
+      X('臭素と水素を反応させるぞい。', ['H2 + Br2 →', 0, 1], ['2', 'HBr'], ['3', '4', 'H2Br', 'HBr2', 'BrH3'],
+        '臭化水素 HBr の水溶液は強酸。', 'whiteFume'),
+    ],
+    i2: [
+      X('このあと<b>ヨウ素</b>を使うんじゃが、足りんのじゃ。ヨウ化カリウム水溶液に塩素を通して、作ってくれんか。', ['Cl2 +', 0, 'KI → 2KCl +', 1], ['2', 'I2'], ['3', '4', 'KI3', 'I', 'ICl'],
+        '酸化力は Cl₂ ＞ I₂。Cl₂ が I⁻ を酸化して、ヨウ素ができる。', 'brownSol'),
+      X('<b>ヨウ素</b>をもう少し使いたい。過酸化水素水とヨウ化カリウムで作ってくれんか。', ['H2O2 +', 0, 'KI + H2SO4 →', 1, '+ K2SO4 +', 2, 'H2O'], ['2', 'I2', '2'], ['3', '4', 'KI3', 'KIO3', 'HI'],
+        'H₂O₂ が酸化剤としてはたらき、I⁻ を I₂ に酸化する。', 'brownSol'),
+    ],
+    h2o2: [
+      X('過酸化水素水に酸化マンガン(Ⅳ)を入れて、酸素を出すぞい。', [0, 'H2O2 →', 1, 'H2O +', 2], ['2', '2', 'O2'], ['3', '4', 'O3', 'H2', 'O'],
+        'MnO₂ は触媒なので、反応式には書かない。酸素は水上置換で集める。', 'bubbles'),
+      X('硫酸鉄(Ⅱ)の水溶液に、過酸化水素水を加えるぞい。', ['H2O2 +', 0, 'FeSO4 + H2SO4 →', 1, '+ 2H2O'], ['2', 'Fe2(SO4)3'], ['3', '4', 'FeSO4', 'Fe(SO4)3', 'Fe2SO4'],
+        'H₂O₂ が酸化剤としてはたらき、Fe²⁺ が Fe³⁺ に酸化される（淡緑色 → 黄褐色）。', 'brownSol'),
+    ],
+    nh3: [
+      X('塩化アンモニウムと水酸化カルシウムで、アンモニアをつくるぞい。', [0, 'NH4Cl + Ca(OH)2 →', 1, '+ 2H2O +', 2, 'NH3'], ['2', 'CaCl2', '2'], ['3', '4', 'CaCl', 'Ca(OH)Cl', 'NH4OH'],
+        '弱塩基の塩＋強塩基 → 弱塩基 の反応。アンモニアは上方置換で集める。', 'steam'),
+      X('窒素と水素から、アンモニアを合成するぞい（ハーバー・ボッシュ法）。', ['N2 +', 0, 'H2 →', 1, 2], ['3', '2', 'NH3'], ['4', '6', 'N2H4', 'NH4', 'HN3'],
+        '触媒は四酸化三鉄 Fe₃O₄ を主成分とするもの。', 'steam'),
+    ],
+    p4: [
+      X('ほんの少しの黄リンを、燃やしてみるぞい。', [0, 'P +', 1, 'O2 →', 2], ['4', '5', 'P4O10'], ['2', '10', 'P2O3', 'P4O6', 'PO2'],
+        '燃えると白い煙（十酸化四リン P₄O₁₀）が出る。', 'whiteFume'),
+      X('黄リンを燃やしてできた白い粉に、水を加えて加熱するぞい。', ['P4O10 +', 0, 'H2O →', 1, 2], ['6', '4', 'H3PO4'], ['2', '10', 'H3PO3', 'HPO3', 'H2PO4'],
+        'P₄O₁₀ は水と反応してリン酸 H₃PO₄ になる。', 'steam'),
+    ],
+    pr: [
+      X('赤リンを燃やしてみるぞい。', [0, 'P +', 1, 'O2 →', 2], ['4', '5', 'P4O10'], ['2', '10', 'P2O3', 'P4O6', 'PO2'],
+        '赤リンも黄リンも、燃えると同じ P₄O₁₀ になる（同素体だから）。', 'whiteFume'),
+    ],
+    s: [
+      X('二酸化硫黄と硫化水素をまぜて、硫黄ができるか確かめるぞい。', ['SO2 +', 0, 'H2S →', 1, 2, '+ 2H2O'], ['2', '3', 'S'], ['4', '6', 'SO3', 'H2SO4', 'S2'],
+        'H₂S が還元剤、SO₂ が酸化剤としてはたらき、黄白色の硫黄が生じる。', 'whiteFume'),
+      X('二酸化硫黄から三酸化硫黄をつくるぞい（接触法）。', [0, 'SO2 + O2 →', 1, 2], ['2', '2', 'SO3'], ['3', '4', 'SO4', 'S2O3', 'H2SO4'],
+        '触媒は酸化バナジウム(Ⅴ) V₂O₅。SO₃ を濃硫酸に吸収させて、硫酸をつくる。', 'whiteFume'),
+    ],
+    p4o10: [
+      X('十酸化四リンに水を加えて加熱するぞい。', ['P4O10 +', 0, 'H2O →', 1, 2], ['6', '4', 'H3PO4'], ['2', '10', 'H3PO3', 'HPO3', 'H2PO4'],
+        'P₄O₁₀ は酸性の乾燥剤。塩基性の気体（NH₃）の乾燥には使えない。', 'steam'),
+    ],
+    no2: [
+      X('一酸化窒素を空気にふれさせるぞい。', [0, 'NO + O2 →', 1, 2], ['2', '2', 'NO2'], ['3', '4', 'N2O', 'NO3', 'N2O4'],
+        '無色の NO が空気中の酸素で酸化され、赤褐色の NO₂ になる。', 'brownGas'),
+      X('二酸化窒素を水に吸収させて、硝酸をつくるぞい（オストワルト法）。', [0, 'NO2 + H2O →', 1, 2, '+ NO'], ['3', '2', 'HNO3'], ['4', '6', 'HNO2', 'NH3', 'N2O5'],
+        'オストワルト法の最後の段階。出てきた NO は、また酸化して使う。', 'steam'),
+    ],
+    h2s: [
+      X('硫化水素と二酸化硫黄をまぜてみるぞい。', ['SO2 +', 0, 'H2S →', 1, 2, '+ 2H2O'], ['2', '3', 'S'], ['4', '6', 'SO3', 'H2SO4', 'S2'],
+        'H₂S が還元剤、SO₂ が酸化剤としてはたらき、硫黄が生じて白くにごる。', 'whiteFume'),
+      X('硫化水素を燃やしてみるぞい。', [0, 'H2S +', 1, 'O2 →', 2, 3, '+ 2H2O'], ['2', '3', '2', 'SO2'], ['4', '5', 'SO3', 'S', 'H2SO4'],
+        '空気中で燃えると、二酸化硫黄と水ができる。', 'blueFlame'),
+    ],
+    so2: [
+      X('銅に熱濃硫酸を加えて、二酸化硫黄をつくるぞい。', ['Cu +', 0, 'H2SO4 →', 1, '+ 2H2O + SO2'], ['2', 'CuSO4'], ['3', '4', 'CuSO3', 'CuS', 'Cu2SO4'],
+        '二酸化硫黄は水に溶けやすく空気より重いので、下方置換で集める。', 'whiteFume'),
+      X('二酸化硫黄から三酸化硫黄をつくるぞい（接触法）。', [0, 'SO2 + O2 →', 1, 2], ['2', '2', 'SO3'], ['3', '4', 'SO4', 'S2O3', 'H2SO4'],
+        '触媒は酸化バナジウム(Ⅴ) V₂O₅。', 'whiteFume'),
+    ],
+    co2: [
+      X('石灰石に塩酸を注いで、二酸化炭素をつくるぞい。', ['CaCO3 +', 0, 'HCl →', 1, '+ H2O + CO2'], ['2', 'CaCl2'], ['3', '4', 'CaCl', 'CaO', 'Ca(OH)2'],
+        '二酸化炭素は空気より重いので、下方置換で集める。', 'bubbles'),
+      X('二酸化炭素を水酸化ナトリウム水溶液に吸収させるぞい。', [0, 'NaOH + CO2 →', 1, '+ H2O'], ['2', 'Na2CO3'], ['3', '4', 'NaHCO3', 'NaCO3', 'Na2O'],
+        'NaOH は CO₂ を吸収して炭酸ナトリウムになる。', 'none'),
+    ],
+    na2sio3: [
+      X('二酸化ケイ素と水酸化ナトリウムを加熱して、ケイ酸ナトリウムをつくるぞい。', ['SiO2 +', 0, 'NaOH →', 1, '+ H2O'], ['2', 'Na2SiO3'], ['3', '4', 'NaSiO3', 'Na2SiO4', 'SiF4'],
+        'SiO₂ は酸性酸化物なので、塩基の NaOH と反応する。', 'steam'),
+      X('水ガラスに塩酸を加えるぞい。', ['Na2SiO3 +', 0, 'HCl →', 1, '+ 2NaCl'], ['2', 'H2SiO3'], ['3', '4', 'SiO2', 'SiCl4', 'NaHSiO3'],
+        'ケイ酸が白いゲル状になって遊離する。乾燥させるとシリカゲル。', 'whiteFume'),
+    ],
+    silica: [
+      X('シリカゲルの原料のケイ酸を、水ガラスからつくるぞい。', ['Na2SiO3 +', 0, 'HCl →', 1, '+ 2NaCl'], ['2', 'H2SiO3'], ['3', '4', 'SiO2', 'SiCl4', 'NaHSiO3'],
+        'ケイ酸を乾燥させると、多孔質のシリカゲルになる。', 'whiteFume'),
+    ],
+    na: [
+      X('ナトリウムのかけらを水に入れるぞい。', [0, 'Na +', 1, 'H2O →', 2, 3, '+ H2'], ['2', '2', '2', 'NaOH'], ['3', '4', 'Na2O', 'NaH', 'NaO'],
+        '激しく反応して水素が発生し、水溶液は強塩基性になる。', 'bubbles'),
+      X('ナトリウムを空気中に置いておくと、どうなるかのう。', [0, 'Na + O2 →', 1, 2], ['4', '2', 'Na2O'], ['3', '6', 'NaO', 'NaO2', 'Na2O3'],
+        '金属光沢がすぐに失われる。だから石油中に保存する。', 'none'),
+      X('ナトリウムは工場では、塩化ナトリウムを融かして電気分解（溶融塩電解）してつくるんじゃ。', [0, 'NaCl →', 1, 2, '+ Cl2'], ['2', '2', 'Na'], ['3', '4', 'NaCl2', 'Na2', 'H2'],
+        'イオン化傾向が大きい金属は、水溶液の電気分解では得られないので、溶融塩電解を使う。', 'sparks'),
+    ],
+    naoh: [
+      CHAIN('水酸化ナトリウムは工場では、塩化ナトリウム水溶液を電気分解してつくるんじゃ。陽極と陰極で起こる反応を、それぞれイオン反応式で完成させておくれ。', [
+        X('陽極（＋）：塩化物イオンが電子を失って、塩素が発生する。', [0, 'Cl^- →', 1, '+ 2e^-'], ['2', 'Cl2'], ['3', '4', 'Cl', 'HCl', 'O2'],
+          '陽極では酸化反応が起こる。', 'yellowGas'),
+        X('陰極（−）：水分子が電子を受け取って、水素が発生する。', [0, 'H2O + 2e^- →', 1, '+ 2OH^-'], ['2', 'H2'], ['3', '4', 'O2', 'Na', 'H^+'],
+          '陰極では還元反応が起こる。Na⁺ はイオン化傾向が大きいので還元されず、かわりに水が還元される。陰極側に NaOH ができる（イオン交換膜法）。', 'bubbles'),
+      ]),
+      X('水酸化ナトリウムに二酸化炭素を吸収させるぞい。', [0, 'NaOH + CO2 →', 1, '+ H2O'], ['2', 'Na2CO3'], ['3', '4', 'NaHCO3', 'NaCO3', 'Na2O'],
+        '固体の NaOH を空気中に置くと、CO₂ を吸収して炭酸ナトリウムに変わる。', 'none'),
+    ],
+    na2co3: [
+      X('炭酸ナトリウムに塩酸を加えるぞい。', ['Na2CO3 +', 0, 'HCl →', 1, 2, '+ H2O + CO2'], ['2', '2', 'NaCl'], ['3', '4', 'NaHCO3', 'Na2Cl', 'NaClO'],
+        '弱酸の塩＋強酸 → 強酸の塩＋弱酸（CO₂ ＋ H₂O）の反応。', 'bubbles'),
+      X('炭酸ナトリウムは工場ではアンモニアソーダ法でつくるんじゃ。全体をまとめた式を完成させるぞい。', [0, 'NaCl + CaCO3 →', 1, '+ CaCl2'], ['2', 'Na2CO3'], ['3', '4', 'NaHCO3', 'NaCO3', 'Na2O'],
+        '途中で NaHCO₃ が沈殿し、それを加熱して Na₂CO₃ にする。NH₃ は回収して再び使う。', 'bubbles'),
+    ],
+    nahco3: [
+      X('アンモニアソーダ法で沈殿した炭酸水素ナトリウムを、加熱するぞい。', [0, 'NaHCO3 →', 1, '+ H2O + CO2'], ['2', 'Na2CO3'], ['3', '4', 'NaOH', 'Na2O', 'NaCO3'],
+        'ベーキングパウダーでケーキがふくらむのは、この CO₂ のため。', 'bubbles'),
+    ],
+    cao: [
+      X('酸化カルシウムに塩酸を加えるぞい。', ['CaO +', 0, 'HCl →', 1, '+ H2O'], ['2', 'CaCl2'], ['3', '4', 'CaCl', 'CaOCl', 'Ca(OH)2'],
+        'CaO は塩基性酸化物なので、酸と反応して塩と水になる。', 'steam'),
+    ],
+    caoh2: [
+      X('水酸化カルシウムを塩酸で中和するぞい。', ['Ca(OH)2 +', 0, 'HCl →', 1, '+ 2H2O'], ['2', 'CaCl2'], ['3', '4', 'CaCl', 'CaO', 'CaH2'],
+        '塩化カルシウムは潮解性があり、乾燥剤に使われる。', 'none'),
+      X('水酸化カルシウムと塩化アンモニウムで、アンモニアをつくるぞい。', [0, 'NH4Cl + Ca(OH)2 →', 1, '+ 2H2O +', 2, 'NH3'], ['2', 'CaCl2', '2'], ['3', '4', 'CaCl', 'Ca(OH)Cl', 'NH4OH'],
+        'アンモニアは上方置換で集める。', 'steam'),
+    ],
+    caco3: [
+      X('炭酸カルシウムに塩酸を注ぐぞい。', ['CaCO3 +', 0, 'HCl →', 1, '+ H2O + CO2'], ['2', 'CaCl2'], ['3', '4', 'CaCl', 'CaO', 'Ca(OH)2'],
+        '発生した CO₂ を石灰水に通すと白くにごる。', 'bubbles'),
+    ],
+    caso4: [
+      X('塩化カルシウム水溶液に硫酸を加えるぞい。', ['CaCl2 + H2SO4 →', 0, '+', 1, 'HCl'], ['CaSO4', '2'], ['3', '4', 'CaS', 'CaSO3', 'Ca(HSO4)2'],
+        '硫酸カルシウムは水に溶けにくいので、白く沈殿する。', 'pptWhite'),
+    ],
+    baso4: [
+      X('塩化バリウム水溶液に硫酸を加えるぞい。', ['BaCl2 + H2SO4 →', 0, '+', 1, 'HCl'], ['BaSO4', '2'], ['3', '4', 'BaS', 'BaSO3', 'Ba(HSO4)2'],
+        'BaSO₄ の白色沈殿は、SO₄²⁻ や Ba²⁺ の検出に使われる。', 'pptWhite'),
+    ],
+    al: [
+      X('アルミニウムを塩酸に入れるぞい。', [0, 'Al +', 1, 'HCl →', 2, 3, '+ 3H2'], ['2', '6', '2', 'AlCl3'], ['3', '4', 'AlCl2', 'Al2Cl3', 'AlCl'],
+        'Al は三価の陽イオン Al³⁺ になる。', 'bubbles'),
+      X('アルミニウムと酸化鉄(Ⅲ)の粉末に点火するぞい（テルミット反応）。', [0, 'Al + Fe2O3 →', 1, '+ 2Fe'], ['2', 'Al2O3'], ['3', '4', 'AlO', 'Al2O', 'FeO'],
+        '激しく発熱して、とけた鉄が生じる。', 'sparks'),
+      X('アルミニウムは、ボーキサイトから得た酸化アルミニウムを溶融塩電解してつくるんじゃ。', [0, 'Al2O3 →', 1, 2, '+ 3O2'], ['2', '4', 'Al'], ['3', '6', 'AlO', 'Al2', 'O2'],
+        '氷晶石を加えて融点を下げ、溶融塩電解する。陰極に Al が析出する。', 'sparks'),
+    ],
+    zn: [
+      X('亜鉛を塩酸に入れるぞい。', ['Zn +', 0, 'HCl →', 1, '+ H2'], ['2', 'ZnCl2'], ['3', '4', 'ZnCl', 'ZnH2', 'Cl2'],
+        '水素よりイオン化傾向の大きい金属は、塩酸と反応して水素を出す。', 'bubbles'),
+      X('亜鉛を燃やしてできた酸化亜鉛を、塩酸に溶かすぞい。', ['ZnO +', 0, 'HCl →', 1, '+ H2O'], ['2', 'ZnCl2'], ['3', '4', 'ZnCl', 'Zn(OH)2', 'ZnH2'],
+        'ZnO は両性酸化物で、酸とも強塩基とも反応する。', 'none'),
+    ],
+    fe: [
+      X('溶鉱炉で、鉄鉱石を一酸化炭素で還元するぞい。', ['Fe2O3 +', 0, 'CO →', 1, 2, '+ 3CO2'], ['3', '2', 'Fe'], ['4', '6', 'FeO', 'Fe3O4', 'C'],
+        'こうしてできた銑鉄は炭素を約4%含む。', 'sparks'),
+      X('鉄を希塩酸に入れるぞい。', ['Fe +', 0, 'HCl →', 1, '+ H2'], ['2', 'FeCl2'], ['3', '4', 'FeCl3', 'FeCl', 'Fe2Cl3'],
+        '希塩酸とでは Fe²⁺（塩化鉄(Ⅱ)）になる。', 'bubbles'),
+    ],
+    feso4: [
+      X('硫酸鉄(Ⅱ)の水溶液に、水酸化ナトリウム水溶液を加えるぞい。', ['FeSO4 +', 0, 'NaOH →', 1, '+ Na2SO4'], ['2', 'Fe(OH)2'], ['3', '4', 'Fe2O3', 'FeO', 'FeOH'],
+        '緑白色の Fe(OH)₂ が沈殿する。空気中で酸化されて赤褐色に変わっていく。', 'pptGreen'),
+    ],
+    fecl3: [
+      X('鉄を塩素の中で加熱して、塩化鉄(Ⅲ)をつくるぞい。', ['2Fe +', 0, 'Cl2 →', 1, 2], ['3', '2', 'FeCl3'], ['4', '6', 'FeCl2', 'Fe2Cl3', 'FeCl'],
+        '塩素は酸化力が強いので、鉄は Fe³⁺ まで酸化される。', 'sparks'),
+      X('塩化鉄(Ⅱ)水溶液に塩素を通じて、塩化鉄(Ⅲ)にするぞい。', [0, 'FeCl2 + Cl2 →', 1, 2], ['2', '2', 'FeCl3'], ['3', '4', 'FeCl4', 'Fe2Cl3'],
+        '淡緑色の Fe²⁺ が酸化されて、黄褐色の Fe³⁺ になる。', 'orangeSol'),
+    ],
+    cu: [
+      X('銅を濃硝酸に入れるぞい。', ['Cu +', 0, 'HNO3 →', 1, '+ 2H2O + 2NO2'], ['4', 'Cu(NO3)2'], ['2', '6', 'CuNO3', 'Cu(NO3)3', 'CuO'],
+        '赤褐色の NO₂ が発生し、溶液は青色になる。', 'brownGas'),
+      X('銅を空気中で加熱するぞい。', [0, 'Cu + O2 →', 1, 2], ['2', '2', 'CuO'], ['3', '4', 'Cu2O', 'CuO2', 'Cu2O3'],
+        '黒色の酸化銅(Ⅱ) CuO ができる。', 'black'),
+    ],
+    cuso4: [
+      X('硫酸銅(Ⅱ)の水溶液に、水酸化ナトリウム水溶液を加えるぞい。', ['CuSO4 +', 0, 'NaOH →', 1, '+ Na2SO4'], ['2', 'Cu(OH)2'], ['3', '4', 'CuOH', 'CuO', 'Cu2O'],
+        '青白色の Cu(OH)₂ が沈殿する。過剰のアンモニア水には溶けて深青色になる。', 'pptBlue'),
+    ],
+    agno3: [
+      X('硝酸銀水溶液に、水酸化ナトリウム水溶液を加えるぞい。', [0, 'AgNO3 +', 1, 'NaOH →', 2, '+ 2NaNO3 + H2O'], ['2', '2', 'Ag2O'], ['3', '4', 'AgOH', 'AgO', 'Ag2O2'],
+        '褐色の酸化銀 Ag₂O が沈殿する。', 'brownSol'),
+      X('硝酸銀水溶液に銅線を入れるぞい。', ['Cu +', 0, 'AgNO3 →', 1, '+ 2Ag'], ['2', 'Cu(NO3)2'], ['3', '4', 'CuNO3', 'Cu(NO3)3', 'Ag2O'],
+        'イオン化傾向は Cu ＞ Ag。銅線の表面に銀が析出する（銀樹）。', 'sparks'),
+    ],
+    k2cro4: [
+      X('クロム酸カリウム水溶液に、硝酸鉛(Ⅱ)水溶液を加えるぞい。', ['K2CrO4 + Pb(NO3)2 →', 0, '+', 1, 'KNO3'], ['PbCrO4', '2'], ['3', '4', 'PbCr2O7', 'PbO', 'K2Pb'],
+        '黄色のクロム酸鉛(Ⅱ)が沈殿する。', 'pptYellow'),
+      X('クロム酸カリウム水溶液に酸を加えて、色の変化を見るぞい。', [0, 'CrO4^2- +', 1, 'H^+ →', 2, '+ H2O'], ['2', '2', 'Cr2O7^2-'], ['3', '4', 'CrO3', 'Cr^3+', 'Cr2O3'],
+        '黄色の CrO₄²⁻ が赤橙色の Cr₂O₇²⁻ に変わる。クロムの酸化数は ＋6 のまま。', 'orangeSol'),
+    ],
+    kmno4: [
+      X('過マンガン酸イオンが酸化剤としてはたらくときの式を完成させるぞい。', ['MnO4^- +', 0, 'H^+ +', 1, 'e^- →', 2, '+ 4H2O'], ['8', '5', 'Mn^2+'], ['3', '4', 'MnO2', 'Mn^3+', 'Mn'],
+        '硫酸酸性の水溶液中で、赤紫色の MnO₄⁻ がほぼ無色の Mn²⁺ に変わる。', 'bleach'),
+    ],
+    hclo: [
+      X('塩素を水に溶かして、次亜塩素酸をふくむ塩素水をつくるぞい。', ['Cl2 + H2O ⇄', 0, '+', 1], ['HCl', 'HClO'], ['HClO2', 'Cl2O', 'H2', 'O2'],
+        '塩素水の漂白・殺菌作用は HClO による。反応式の係数はすべて 1。', 'none'),
+    ],
+    naclo: [
+      X('次亜塩素酸ナトリウムに塩酸を加えるぞい。気をつけるんじゃぞ。', ['NaClO +', 0, 'HCl → NaCl + H2O +', 1], ['2', 'Cl2'], ['3', '4', 'Cl', 'HClO', 'O2'],
+        '「まぜるな危険」の理由。酸性の洗剤と塩素系漂白剤をまぜると、有毒な塩素が発生する。', 'yellowGas'),
+      X('塩素を水酸化ナトリウム水溶液に通して、次亜塩素酸ナトリウムをつくるぞい。', ['Cl2 +', 0, 'NaOH → NaCl +', 1, '+ H2O'], ['2', 'NaClO'], ['3', '4', 'NaClO3', 'NaCl2', 'Na2O'],
+        'Cl₂ の一部が酸化され（ClO⁻）、一部が還元される（Cl⁻）。', 'none'),
+    ],
+    o2: [
+      X('過酸化水素水に酸化マンガン(Ⅳ)を加えて、酸素をつくるぞい。', ['2H2O2 →', 0, 'H2O +', 1], ['2', 'O2'], ['3', '4', 'O3', 'H2'],
+        'MnO₂ は触媒としてはたらき、反応の前後で変化しない。', 'bubbles'),
+      X('塩素酸カリウムに酸化マンガン(Ⅳ)を加えて加熱し、酸素をつくるぞい。', [0, 'KClO3 → 2KCl +', 1, 2], ['2', '3', 'O2'], ['4', '6', 'O3', 'Cl2'],
+        'ここでも MnO₂ は触媒。', 'bubbles'),
+    ],
+    o3: [
+      X('酸素の中で無声放電をして、オゾンをつくるぞい。', [0, 'O2 →', 1, 2], ['3', '2', 'O3'], ['4', '6', 'O4', 'O'],
+        '紫外線を当ててもオゾンができる。上空のオゾン層も同じしくみでできる。', 'sparks'),
+      X('オゾンを、湿らせたヨウ化カリウムデンプン紙に当てるぞい。', ['2KI + O3 + H2O →', 0, '+', 1, 'KOH + O2'], ['I2', '2'], ['3', '4', 'I', 'K2O'],
+        'ヨウ素が遊離し、デンプンと反応して青紫色になる。', 'brownSol'),
+    ],
+    n2: [
+      X('亜硝酸アンモニウム水溶液を加熱して、窒素をつくるぞい。', ['NH4NO2 →', 0, '+', 1, 2], ['N2', '2', 'H2O'], ['3', '4', 'NH3', 'NO2', 'H2'],
+        '窒素は水に溶けにくいので、水上置換で集める。', 'bubbles'),
+      X('工場では、窒素と水素からアンモニアをつくるんじゃ（ハーバー・ボッシュ法）。', ['N2 +', 0, 'H2 →', 1, 2], ['3', '2', 'NH3'], ['4', '6', 'N2H4', 'NH2'],
+        '鉄を主成分とする触媒を使い、高温・高圧で反応させる。', 'steam'),
+    ],
+    no: [
+      X('銅に希硝酸を加えて、一酸化窒素をつくるぞい。', ['3Cu + 8HNO3 →', 0, 'Cu(NO3)2 + 4H2O +', 1, 2], ['3', '2', 'NO'], ['4', '6', 'NO2', 'N2O'],
+        '濃硝酸だと NO₂ になる。NO は水上置換で集める。', 'bubbles'),
+      X('一酸化窒素を空気にふれさせるぞい。', [0, 'NO + O2 →', 1, 2], ['2', '2', 'NO2'], ['3', '4', 'N2O', 'NO3'],
+        '無色の NO が、すぐに赤褐色の NO₂ に変わる。', 'brownGas'),
+    ],
+    co: [
+      X('一酸化炭素で、酸化鉄(Ⅲ)を還元するぞい。', ['Fe2O3 +', 0, 'CO → 2Fe +', 1, 2], ['3', '3', 'CO2'], ['2', '4', 'CO3', 'C', 'O2'],
+        '溶鉱炉（高炉）の中で起こる反応。CO が還元剤としてはたらく。', 'sparks'),
+      X('一酸化炭素に火をつけるぞい。', [0, 'CO + O2 →', 1, 2], ['2', '2', 'CO2'], ['3', '4', 'CO3', 'C2O'],
+        '燃えて二酸化炭素になる。', 'sparks'),
+    ],
+    cacl2: [
+      X('炭酸カルシウムに塩酸を加えるぞい。', ['CaCO3 +', 0, 'HCl →', 1, '+ H2O + CO2'], ['2', 'CaCl2'], ['3', '4', 'CaCl', 'CaO', 'Ca(ClO)2'],
+        'CO₂ の発生とともに、塩化カルシウムができる。', 'bubbles'),
+      X('水酸化カルシウムを塩酸で中和するぞい。', ['Ca(OH)2 +', 0, 'HCl →', 1, '+', 2, 'H2O'], ['2', 'CaCl2', '2'], ['3', '4', 'CaCl', 'CaO'],
+        '中和で塩化カルシウムと水ができる。', 'none'),
+    ],
+    pbo2: [
+      X('鉛蓄電池の正極で起こる反応（放電）を完成させるぞい。', ['PbO2 +', 0, 'H^+ + SO4^2- + 2e^- →', 1, '+', 2, 'H2O'], ['4', 'PbSO4', '2'], ['3', '6', 'PbSO3', 'Pb', 'PbO'],
+        '正極では PbO₂ が電子を受け取って（還元されて）PbSO₄ になる。', 'none'),
+      X('鉛蓄電池の放電全体の反応を完成させるぞい。', ['Pb + PbO2 +', 0, 'H2SO4 →', 1, 2, '+ 2H2O'], ['2', '2', 'PbSO4'], ['3', '4', 'PbSO3', 'PbO', 'Pb(SO4)2'],
+        '放電すると両極に PbSO₄ がつき、硫酸の濃度が下がる。', 'none'),
+    ],
+    bleachpowder: [
+      X('さらし粉に塩酸を加えて、塩素を発生させるぞい。', ['CaCl(ClO)·H2O +', 0, 'HCl →', 1, '+', 2, 'H2O +', 3], ['2', 'CaCl2', '2', 'Cl2'], ['3', '4', 'O2', 'CaO'],
+        'ClO⁻ と Cl⁻ が酸性で反応して、塩素が発生する。', 'yellowGas'),
+    ],
+    h2: [
+      X('亜鉛に塩酸を加えて、水素を発生させるぞい。', ['Zn +', 0, 'HCl → ZnCl2 +', 1], ['2', 'H2'], ['3', '4', 'Cl2', 'H2O'],
+        '亜鉛は水素よりイオン化傾向が大きいので、酸に溶けて水素を出す。', 'bubbles'),
+      X('水素に火をつけるぞい。', [0, 'H2 + O2 →', 1, 2], ['2', '2', 'H2O'], ['3', '4', 'H2O2', 'OH'],
+        '燃えると水だけができる。酸素と混ぜた気体に点火すると爆発的に反応する。', 'steam'),
+    ],
+    nh4cl: [
+      X('塩化アンモニウムと水酸化カルシウムを混ぜて加熱するぞい。', ['2NH4Cl + Ca(OH)2 →', 0, '+', 1, 'H2O +', 2, 'NH3'], ['CaCl2', '2', '2'], ['3', '4', 'CaO', 'NH4OH'],
+        '弱塩基の塩に強塩基を加えると、弱塩基のアンモニアが遊離する。', 'steam'),
+    ],
+    alum: [
+      X('ミョウバンを水に溶かすと、どんなイオンに分かれるかの？', ['AlK(SO4)2 → Al^3+ + K^+ +', 0, 1], ['2', 'SO4^2-'], ['3', '4', 'SO4^-', 'SO3^2-'],
+        '複塩は、水に溶けると成分のイオンに分かれる。', 'none'),
+      X('硫酸アルミニウムと硫酸カリウムの水溶液から、ミョウバンの結晶をつくるぞい。', ['Al2(SO4)3 + K2SO4 + 24H2O →', 0, 1], ['2', 'AlK(SO4)2·12H2O'], ['3', '4', 'K2SO4', 'Al2(SO4)3', 'AlK(SO4)2'],
+        '混合水溶液を濃縮・冷却すると、正八面体の結晶が出てくる。', 'none'),
+    ],
+    fes: [
+      X('硫化鉄(Ⅱ)に塩酸を加えて、硫化水素を発生させるぞい。', ['FeS +', 0, 'HCl →', 1, '+ H2S'], ['2', 'FeCl2'], ['3', '4', 'FeCl3', 'FeH2'],
+        '弱酸の塩に強酸を加えると、弱酸の H₂S が発生する。', 'bubbles'),
+    ],
+    cuo: [
+      X('銅を空気中で加熱するぞい。', [0, 'Cu + O2 →', 1, 2], ['2', '2', 'CuO'], ['3', '4', 'Cu2O', 'CuO2'],
+        '銅の表面が黒色の酸化銅(Ⅱ)になる。', 'black'),
+      X('酸化銅(Ⅱ)を炭素と混ぜて加熱し、還元するぞい。', [0, 'CuO + C →', 1, 'Cu +', 2], ['2', '2', 'CO2'], ['3', '4', 'CO', 'O2'],
+        '炭素が酸素をうばって、赤色の銅が得られる。', 'sparks'),
+    ],
+    agcl: [
+      X('塩化銀にアンモニア水を加えるぞい。', ['AgCl +', 0, 'NH3 →', 1, '+ Cl^-'], ['2', '[Ag(NH3)2]^+'], ['3', '4', '[Ag(NH3)4]^+', 'Ag2O'],
+        '白色沈殿が、ジアンミン銀(Ⅰ)イオンになって溶ける。', 'none'),
+      X('塩化銀に光を当てておくぞい。', [0, 'AgCl →', 1, 'Ag +', 2], ['2', '2', 'Cl2'], ['3', '4', 'Cl', 'AgCl2'],
+        '光で分解して銀が遊離し、黒っぽくなる（感光性）。', 'black'),
+    ],
+    cuoh2: [
+      X('硫酸銅(Ⅱ)水溶液に NaOH 水溶液を加えるぞい。', ['Cu^2+ +', 0, 'OH^- →', 1], ['2', 'Cu(OH)2'], ['3', '4', 'CuOH', 'Cu(OH)3', 'CuO'],
+        '青白色の Cu(OH)₂ が沈殿する。', 'pptBlue'),
+      X('水酸化銅(Ⅱ)に、過剰のアンモニア水を加えるぞい。', ['Cu(OH)2 +', 0, 'NH3 →', 1, '+ 2OH^-'], ['4', '[Cu(NH3)4]^2+'], ['2', '6', '[Cu(NH3)2]^+', '[Cu(NH3)4]^+', 'Cu(NH3)4'],
+        '沈殿が溶けて、深青色のテトラアンミン銅(Ⅱ)イオン（正方形）になる。', 'pptBlue'),
+    ],
+    cus: [
+      X('硫酸銅(Ⅱ)水溶液に硫化水素を通じるぞい。', ['Cu^2+ + H2S →', 0, '+', 1, 'H^+'], ['CuS', '2'], ['3', '4', 'Cu2S', 'CuSO4', 'S'],
+        '黒色の CuS が沈殿する。酸性の水溶液でも沈殿する。', 'black'),
+    ],
+    ag2o: [
+      X('硝酸銀水溶液に NaOH 水溶液を加えるぞい。', [0, 'Ag^+ + 2OH^- →', 1, '+ H2O'], ['2', 'Ag2O'], ['3', '4', 'AgOH', 'AgO', 'Ag2O2'],
+        'AgOH は不安定なので、褐色の Ag₂O が沈殿する。', 'brownSol'),
+      X('酸化銀に、アンモニア水を加えるぞい。', ['Ag2O +', 0, 'NH3 + H2O →', 1, 2, '+ 2OH^-'], ['4', '2', '[Ag(NH3)2]^+'], ['3', '6', '[Ag(NH3)4]^+', 'Ag(NH3)2'],
+        '沈殿が溶けて、無色のジアンミン銀(Ⅰ)イオン（直線形）になる。', 'none'),
+    ],
+    agbr: [
+      X('臭化銀に光を当てておくぞい。', [0, 'AgBr →', 1, 'Ag +', 2], ['2', '2', 'Br2'], ['3', '4', 'Br', 'AgBr2'],
+        '光で分解して銀が遊離し、黒っぽくなる（感光性）。', 'black'),
+    ],
+    k4fecn6: [
+      X('ヘキサシアニド鉄(Ⅱ)酸カリウムを水に溶かすと、どんなイオンに分かれるかの？', ['K4[Fe(CN)6] →', 0, 'K^+ +', 1], ['4', '[Fe(CN)6]^4-'], ['2', '6', '[Fe(CN)6]^3-', 'Fe(CN)6', 'Fe^2+'],
+        '錯イオン [Fe(CN)₆]⁴⁻ は、こわれずにひとまとまりで存在する。', 'none'),
+    ],
+    k3fecn6: [
+      X('ヘキサシアニド鉄(Ⅲ)酸カリウムを水に溶かすと、どんなイオンに分かれるかの？', ['K3[Fe(CN)6] →', 0, 'K^+ +', 1], ['3', '[Fe(CN)6]^3-'], ['2', '6', '[Fe(CN)6]^4-', 'Fe(CN)6', 'Fe^3+'],
+        '錯イオン [Fe(CN)₆]³⁻ は、こわれずにひとまとまりで存在する。', 'none'),
+    ],
+    k2cr2o7: [
+      X('二クロム酸イオンが、硫酸酸性で酸化剤としてはたらくときの反応を完成させるぞい。', ['Cr2O7^2- +', 0, 'H^+ + 6e^- →', 1, 2, '+ 7H2O'], ['14', '2', 'Cr^3+'], ['7', '12', 'Cr^6+', 'CrO4^2-', 'Cr^2+'],
+        '赤橙色の Cr₂O₇²⁻ が、緑色の Cr³⁺ に変わる。', 'pptGreen'),
+      X('クロム酸カリウム水溶液に酸を加えて、二クロム酸イオンにするぞい。', [0, 'CrO4^2- + 2H^+ →', 1, '+ H2O'], ['2', 'Cr2O7^2-'], ['3', '4', 'CrO4^-', 'Cr2O7^-'],
+        '黄色から赤橙色に変わる。塩基を加えると、もとの黄色にもどる。', 'orangeSol'),
+    ],
+    mno2: [
+      X('酸化マンガン(Ⅳ)に濃塩酸を加えて加熱するぞい。', ['MnO2 +', 0, 'HCl →', 1, '+ 2H2O + Cl2'], ['4', 'MnCl2'], ['2', '6', 'MnCl4', 'MnO', 'H2'],
+        'ここでは MnO₂ は触媒ではなく酸化剤。', 'yellowGas'),
+      X('塩素酸カリウムに酸化マンガン(Ⅳ)を加えて加熱するぞい。', [0, 'KClO3 →', 1, 2, '+ 3O2'], ['2', '2', 'KCl'], ['3', '4', 'KClO', 'K2O', 'KClO4'],
+        'ここでは MnO₂ は触媒。酸素は水上置換で集める。', 'bubbles'),
+    ],
+  };
+  R.forEach(x => { x.rx = RX[x.id]; x.g = x.g || 'nm'; });
+
+  // =========================================================
+  // ドット絵（64ドット人物・びん・背景）
+  // =========================================================
+  function Grid(w, h) { this.w = w; this.h = h; this.a = new Array(w * h).fill(null); }
+  Grid.prototype.set = function (x, y, c) { x = Math.floor(x); y = Math.floor(y); if (x >= 0 && y >= 0 && x < this.w && y < this.h) this.a[y * this.w + x] = c; };
+  Grid.prototype.get = function (x, y) { return (x < 0 || y < 0 || x >= this.w || y >= this.h) ? null : this.a[y * this.w + x]; };
+  const rect = (G, x, y, w, h, c) => { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) G.set(x + i, y + j, c); };
+  const ell = (G, cx, cy, rx, ry, c) => {
+    for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
+      const dx = (x + .5 - cx) / rx, dy = (y + .5 - cy) / ry; if (dx * dx + dy * dy <= 1) G.set(x, y, c);
+    }
+  };
+  const poly = (G, pts, c) => {
+    const ys = pts.map(p => p[1]); const y0 = Math.floor(Math.min(...ys)), y1 = Math.ceil(Math.max(...ys));
+    for (let y = y0; y <= y1; y++) {
+      const sy = y + .5, xs = [];
+      for (let i = 0; i < pts.length; i++) {
+        const [ax, ay] = pts[i], [bx, by] = pts[(i + 1) % pts.length];
+        if ((ay <= sy && by > sy) || (by <= sy && ay > sy)) xs.push(ax + (sy - ay) * (bx - ax) / (by - ay));
+      }
+      xs.sort((a, b) => a - b);
+      for (let k = 0; k + 1 < xs.length; k += 2) for (let x = Math.round(xs[k]); x < Math.round(xs[k + 1]); x++) G.set(x, y, c);
+    }
+  };
+  const line = (G, x0, y0, x1, y1, c) => { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) || 1; for (let i = 0; i <= n; i++) G.set(Math.round(x0 + (x1 - x0) * i / n), Math.round(y0 + (y1 - y0) * i / n), c); };
+  const recolor = (G, fn) => { const out = []; for (let y = 0; y < G.h; y++) for (let x = 0; x < G.w; x++) { const c = fn(x, y, G.get(x, y)); if (c) out.push([x, y, c]); } out.forEach(([x, y, c]) => G.set(x, y, c)); };
+  const rim = (G, base, hi, lo) => recolor(G, (x, y, c) => {
+    if (c !== base) return null;
+    if (G.get(x + 1, y) !== base || G.get(x, y + 1) === null) return lo;
+    if (G.get(x - 1, y) === null || G.get(x, y - 1) === null) return hi;
+    return null;
+  });
+  const outline = (G, c) => recolor(G, (x, y, v) => (!v && (G.get(x - 1, y) || G.get(x + 1, y) || G.get(x, y - 1) || G.get(x, y + 1))) ? c : null);
+  const toCanvas = (G) => { const cv = document.createElement('canvas'); cv.width = G.w; cv.height = G.h; const c = cv.getContext('2d');
+    for (let y = 0; y < G.h; y++) for (let x = 0; x < G.w; x++) { const v = G.get(x, y); if (v) { c.fillStyle = v; c.fillRect(x, y, 1, 1); } } return cv; };
+
+  const INK = '#140d18';
+  // 白衣（博士・みならい共通）
+  function coat(G, W, top, C) {
+    const M = p => p.map(([x, y]) => [W - x, y]);
+    poly(G, [[W / 2 - 9, top], [W / 2 + 9, top], [W / 2 + 13, 64], [W / 2 - 13, 64]], C.coat);
+    const sl = [[W / 2 - 9, top + 1], [W / 2 - 15, top + 7], [W / 2 - 18, top + 24], [W / 2 - 12, top + 26], [W / 2 - 9, top + 12]];
+    poly(G, sl, C.coat); poly(G, M(sl), C.coat);
+    rect(G, W / 2 - 18, top + 24, 6, 4, C.skin); rect(G, W / 2 + 12, top + 24, 6, 4, C.skin);
+    rim(G, C.coat, '#ffffff', C.coatSh);
+    poly(G, [[W / 2 - 5, top], [W / 2 + 5, top], [W / 2, top + 11]], C.shirt);
+    line(G, W / 2, top + 2, W / 2, top + 9, C.tie); G.set(W / 2 - 1, top + 2, C.tie);
+    line(G, W / 2 - 5, top, W / 2, top + 11, C.coatSh); line(G, W / 2 + 5, top, W / 2, top + 11, C.coatSh);
+    line(G, W / 2, top + 12, W / 2, 63, C.coatSh);
+    rect(G, W / 2 - 8, top + 15, 4, 1, C.coatSh); rect(G, W / 2 + 4, top + 15, 4, 1, C.coatSh);
+    rect(G, W / 2 + 5, top + 12, 1, 3, C.pen);
+  }
+  function buildDoc(blink, talk) {
+    const W = 48, G = new Grid(W, 66);
+    const C = { coat: '#eef0f4', coatSh: '#b9c0cf', skin: '#f2c9a4', skinSh: '#d8a985', hair: '#f4f4f4', hairSh: '#c9ccd6', shirt: '#4f8a64', tie: '#8a3a8e', pen: '#3a6ed8', glass: '#cfe9ff', mouth: '#6a2a2a' };
+    coat(G, W, 33, C);
+    rect(G, 21, 29, 6, 4, C.skin);
+    ell(G, 24, 20, 9, 10, C.skin);
+    ell(G, 15.5, 20, 3.5, 6, C.hair); ell(G, 32.5, 20, 3.5, 6, C.hair);
+    rim(G, C.hair, C.hair, C.hairSh);
+    rect(G, 18, 16, 4, 1, C.hair); rect(G, 26, 16, 4, 1, C.hair);
+    // 丸めがね
+    rect(G, 17, 18, 6, 4, INK); rect(G, 25, 18, 6, 4, INK); rect(G, 23, 19, 2, 1, INK);
+    // めがねは白く光らせて、目は見せない
+    rect(G, 18, 19, 4, 2, '#ffffff'); rect(G, 26, 19, 4, 2, '#ffffff');
+    G.set(20, 19, C.glass); G.set(19, 20, C.glass); G.set(28, 19, C.glass); G.set(27, 20, C.glass);
+    G.set(24, 22, C.skinSh); G.set(24, 23, C.skinSh);
+    ell(G, 24, 25.5, 5, 1.6, C.hair);
+    if (talk) rect(G, 23, 27, 2, 2, C.mouth);
+    G.set(20, 11, '#ffffff'); G.set(21, 11, '#ffffff'); G.set(20, 12, '#ffffff');
+    outline(G, INK);
+    return toCanvas(G);
+  }
+  function buildApp(blink, talk, badge) {   // 助手（女の子・外ハネのショートボブ）
+    const W = 48, G = new Grid(W, 66);
+    const C = { coat: '#eef0f4', coatSh: '#b9c0cf', skin: '#ffdcbf', skinSh: '#e8b996', hair: '#6b3a22', hairHi: '#8e5432', shirt: '#f3f5fb', tie: '#f3f5fb', pen: '#e5384f', strap: '#3a3f5c', lens: '#6fd3ff', cheek: '#f79aa6', mouth: '#c24a5a', ribbon: '#e5384f', ribbonSh: '#a8243a', clip: '#ffd84a' };
+    coat(G, W, 35, C);
+    rect(G, 21, 31, 6, 4, C.skin);
+    // 胸元のリボン
+    rect(G, 20, 36, 3, 3, C.ribbon); rect(G, 25, 36, 3, 3, C.ribbon); rect(G, 23, 36, 2, 3, C.ribbonSh);
+    ell(G, 24, 21, 10, 11, C.hair);
+    ell(G, 24, 23, 8, 9, C.skin);
+    // ななめに流した前髪
+    poly(G, [[14, 13], [34, 13], [34, 19], [31, 17], [27, 18], [24, 16], [20, 19], [17, 17], [14, 19]], C.hair);
+    // あごの高さでそろえたボブ（肩にはかからない）
+    rect(G, 14, 17, 3, 11, C.hair); rect(G, 31, 17, 3, 11, C.hair);
+    // 毛先は外ハネ
+    rect(G, 13, 26, 2, 3, C.hair); rect(G, 11, 28, 3, 2, C.hair); G.set(10, 27, C.hair);
+    rect(G, 33, 26, 2, 3, C.hair); rect(G, 34, 28, 3, 2, C.hair); G.set(37, 27, C.hair);
+    rim(G, C.hair, C.hairHi, C.hair);
+    // ヘアピン
+    rect(G, 30, 15, 3, 1, C.clip); rect(G, 31, 16, 2, 1, C.clip);
+    // ゴーグル（おでこ）
+    rect(G, 14, 11, 20, 2, C.strap);
+    rect(G, 16, 9, 6, 5, INK); rect(G, 26, 9, 6, 5, INK);
+    rect(G, 17, 10, 4, 3, C.lens); rect(G, 27, 10, 4, 3, C.lens);
+    G.set(17, 10, '#ffffff'); G.set(27, 10, '#ffffff');
+    if (!blink) {
+      rect(G, 19, 21, 2, 4, INK); rect(G, 27, 21, 2, 4, INK); G.set(19, 22, '#ffffff'); G.set(27, 22, '#ffffff');
+      G.set(18, 21, INK); G.set(29, 21, INK);   // まつげ
+    } else { rect(G, 18, 24, 3, 1, INK); rect(G, 27, 24, 3, 1, INK); }
+    rect(G, 18, 26, 2, 1, C.cheek); rect(G, 28, 26, 2, 1, C.cheek);
+    if (badge) {   // コンプリートの金バッジ（白衣の左胸）
+      rect(G, 16, 45, 5, 5, '#f2c230'); rect(G, 17, 46, 3, 3, '#ffe27a'); G.set(18, 47, '#c8901a');
+      rect(G, 16, 50, 2, 3, '#e5384f'); rect(G, 19, 50, 2, 3, '#2f6fbf');
+    }
+    if (talk) rect(G, 23, 27, 2, 2, C.mouth); else { G.set(23, 28, C.mouth); G.set(24, 28, C.mouth); }
+    outline(G, INK);
+    return toCanvas(G);
+  }
+
+  // びん（18 x 30 前後）
+  const LOOK_NAME = { oil: '石油入り広口びん', brown: '褐色びん', glass: 'ガラスびん', poly: 'ポリ容器', gas: '集気びん', small: '小びん', solid: '広口びん', water: '水入り広口びん', can: 'スプレー缶' };
+  function buildBottle(r) {
+    const W = 22, H = 34, G = new Grid(W, H);
+    const glass = '#cfe6f2', glassSh = '#9ebccc', hi = '#ffffff';
+    if (r.look === 'brown' || r.look === 'glass' || r.look === 'small') {
+      const brown = r.look === 'brown', small = r.look === 'small';
+      const body = brown ? '#7a3f16' : glass, sh = brown ? '#552a0c' : glassSh;
+      const bw = small ? 12 : 16, bx = (W - bw) / 2, top = small ? 16 : 10;
+      rect(G, bx, top, bw, H - top, body);
+      rect(G, W / 2 - 3, top - 5, 6, 5, body);
+      rect(G, W / 2 - 4, top - 9, 8, 4, brown ? '#3a2a20' : '#4a5a6a');
+      if (!brown) rect(G, bx + 1, top + 6, bw - 2, H - top - 7, r.liq);
+      else rect(G, bx + 1, top + 6, bw - 2, H - top - 7, '#6a3410');
+      rim(G, body, body, sh);
+      line(G, bx + 2, top + 2, bx + 2, H - 5, hi);
+      if (r.id === 'h2so4') { rect(G, bx + 1, top + 6, bw - 2, 1, '#ffffff'); }
+    } else if (r.look === 'poly') {
+      const body = '#f2f2ea', sh = '#c8c8bc';
+      rect(G, 2, 10, 18, H - 10, body); rect(G, 6, 5, 10, 5, body);
+      rect(G, 5, 1, 12, 5, '#2f6fbf');
+      rim(G, body, body, sh); rect(G, 4, 14, 1, 14, '#ffffff');
+    } else if (r.look === 'can') {
+      const body = r.liq, sh = '#2a3a4a';
+      rect(G, 4, 10, 14, H - 10, body);
+      rect(G, 5, 7, 12, 3, '#c9d2da'); rect(G, 7, 5, 8, 2, '#c9d2da');
+      rect(G, 8, 1, 6, 4, '#f4f4f4'); rect(G, 13, 2, 3, 1, '#9aa4ae');
+      rect(G, 5, 16, 12, 9, '#f4f6f8'); rect(G, 7, 18, 8, 1, body); rect(G, 7, 21, 6, 1, '#9aa4ae');
+      rim(G, body, body, sh); rect(G, 6, 11, 1, 4, '#ffffff'); rect(G, 6, 26, 1, 6, '#ffffff');
+    } else if (r.look === 'gas') {
+      rect(G, 2, 6, 18, H - 6, glass);
+      rect(G, 3, 7, 16, H - 8, r.liq);
+      rect(G, 0, 4, 22, 2, '#a9c4d4');
+      rim(G, glass, glass, glassSh); rect(G, 4, 9, 1, 18, '#efffd0');
+    } else { // solid / water: 広口びん
+      rect(G, 1, 8, 20, H - 8, glass);
+      rect(G, 2, 3, 18, 5, '#3a3f5c');
+      if (r.look === 'water') { rect(G, 2, 13, 18, H - 14, '#9fd0f0'); ell(G, 11, H - 6, 6, 4, r.liq); ell(G, 7, H - 4, 3, 2, r.liq); }
+      else if (r.look === 'oil') { rect(G, 2, 13, 18, H - 14, '#ecd48a'); rect(G, 4, H - 9, 6, 5, r.liq); rect(G, 11, H - 7, 6, 3, r.liq); G.set(5, H - 9, '#ffffff'); }
+      else { rect(G, 2, 20, 18, H - 21, r.liq); for (let i = 0; i < 18; i++) G.set(2 + ((i * 7) % 18), 20 + ((i * 5) % 12), i % 2 ? '#ffffff55' : '#00000033'); }
+      rim(G, glass, glass, glassSh); line(G, 3, 10, 3, H - 4, hi);
+    }
+    outline(G, INK);
+    return toCanvas(G);
+  }
+  // まちがえやすい組み合わせ（同じグループの試薬を、選択肢に入れやすくする）
+  const CONFUSE_GROUPS = [
+    ['na2co3', 'nahco3', 'naoh'], ['na', 'naoh'], ['cao', 'caoh2', 'caco3', 'cacl2'], ['caso4', 'baso4', 'caco3'],
+    ['no', 'no2', 'hno3'], ['co', 'co2'], ['o2', 'o3', 'h2o2'], ['hclo', 'naclo', 'bleachpowder'], ['hcl', 'hclo', 'cl2'],
+    ['h2', 'h2o2', 'h2s'], ['n2', 'nh3', 'nh4cl', 'no'], ['so2', 'h2s', 'h2so4', 's'], ['p4', 'pr', 'p4o10'],
+    ['cu', 'cuo', 'cuso4'], ['agno3', 'agcl'], ['fe', 'feso4', 'fecl3', 'fes'], ['kmno4', 'mno2', 'k2cro4', 'pbo2'], ['cuo', 'mno2', 'fes'],
+    ['al', 'zn', 'alum'], ['cuoh2', 'cuo', 'cuso4', 'cus'], ['ag2o', 'agcl', 'agbr', 'agno3'],
+    ['k4fecn6', 'k3fecn6', 'feso4', 'fecl3'], ['k2cr2o7', 'k2cro4', 'kmno4'], ['cus', 'fes', 'cuo'], ['hcl', 'hf', 'h2so4', 'hno3'], ['br2', 'no2'], ['i2', 'kmno4'], ['silica', 'na2sio3'], ['cl2', 'br2', 'i2'],
+  ];
+  const CONFUSE = {};
+  CONFUSE_GROUPS.forEach(g => g.forEach(a => g.forEach(b => {
+    if (a === b) return; const rb = R.find(r => r.id === b); if (!rb) return;
+    (CONFUSE[a] = CONFUSE[a] || []); if (!CONFUSE[a].includes(rb)) CONFUSE[a].push(rb);
+  })));
+  const BOTTLE = Object.fromEntries(R.map(r => [r.id, buildBottle(r)]));
+  const SPR = { doc: [[buildDoc(0, 0), buildDoc(0, 1)], [buildDoc(1, 0), buildDoc(1, 1)]], app: null };
+  function refreshAppSprite() { const b = !!awards.complete; SPR.app = [[buildApp(0, 0, b), buildApp(0, 1, b)], [buildApp(1, 0, b), buildApp(1, 1, b)]]; }
+
+  // 棚の飾り（白い固体・無色の水溶液・フラスコ）
+  const SHELF_DECOR = (() => {
+    const GL = '#d6ebf3', GLS = '#a9c6d4', LIQ = { c: '#eef8ff', b: '#cfe6fa', y: '#f6f0c8', g: '#e2f2d8', w: '#f7f6f0', s: '#ece4d2' };
+    const make = (w, h, fn) => { const G = new Grid(w, h); fn(G); outline(G, INK); return toCanvas(G); };
+    const fill = (G, from, col) => recolor(G, (x, y, v) => (v === GL && y >= from) ? col : null);
+    const out = {};
+    for (const [k, col] of Object.entries(LIQ)) {
+      out['bottle:' + k] = make(9, 17, G => { rect(G, 1, 6, 7, 11, GL); rect(G, 3, 2, 3, 4, GL); rect(G, 2, 0, 5, 2, '#5a6a7a'); fill(G, 9, col); rim(G, GL, GL, GLS); line(G, 2, 7, 2, 15, '#ffffff'); });
+      out['flask:' + k] = make(13, 18, G => { rect(G, 5, 0, 3, 6, GL); poly(G, [[5, 6], [8, 6], [12.5, 18], [0.5, 18]], GL); fill(G, 12, col); rim(G, GL, GL, GLS); rect(G, 4, 0, 5, 1, GL); });
+      out['round:' + k] = make(13, 18, G => { rect(G, 5, 0, 3, 7, GL); ell(G, 6.5, 12, 6, 5.8, GL); fill(G, 12, col); rim(G, GL, GL, GLS); G.set(4, 9, '#ffffff'); G.set(4, 10, '#ffffff'); });
+      out['beaker:' + k] = make(12, 13, G => { rect(G, 1, 1, 10, 12, GL); G.set(0, 1, GL); fill(G, 6, col); rim(G, GL, GL, GLS); line(G, 3, 3, 3, 10, '#ffffff'); });
+      out['jar:' + k] = make(12, 15, G => { rect(G, 1, 3, 10, 12, GL); rect(G, 1, 0, 10, 3, '#3a3f5c'); fill(G, 7, col); rim(G, GL, GL, GLS);
+        for (let i = 0; i < 6; i++) G.set(2 + (i * 3) % 8, 9 + (i * 2) % 5, '#dcd8cc'); });
+    }
+    out.brown = make(9, 17, G => { rect(G, 1, 6, 7, 11, '#7a3f16'); rect(G, 3, 2, 3, 4, '#7a3f16'); rect(G, 2, 0, 5, 2, '#3a2a20'); rim(G, '#7a3f16', '#7a3f16', '#552a0c'); line(G, 2, 7, 2, 15, '#a86a3a'); });
+    out.poly = make(9, 17, G => { rect(G, 1, 5, 7, 12, '#f2f2ea'); rect(G, 2, 2, 5, 3, '#f2f2ea'); rect(G, 2, 0, 5, 2, '#2f6fbf'); rim(G, '#f2f2ea', '#f2f2ea', '#c8c8bc'); });
+    return out;
+  })();
+
+  // 背景（研究室）
+  const P = (c, x, y, w, h, col) => { c.fillStyle = col; c.fillRect(x, y, w, h); };
+  const hash = (x, y) => { let h = (x * 374761393 + y * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return (h ^ (h >>> 16)) >>> 0; };
+  const bg = document.createElement('canvas'); bg.width = 256; bg.height = 128;
+  (function drawLab(c) {
+    // 壁（薄い水色・無地）
+    P(c, 0, 0, 256, 128, '#dbeef7');
+    P(c, 0, 72, 256, 8, '#9fb8c8'); P(c, 0, 72, 256, 1, '#8aa4b6');
+    // 窓
+    P(c, 6, 6, 38, 30, '#8a6a46'); P(c, 8, 8, 34, 26, '#9fd4f0');
+    P(c, 10, 26, 11, 4, '#ffffff'); P(c, 12, 24, 7, 2, '#ffffff'); P(c, 30, 13, 9, 3, '#ffffff'); P(c, 32, 11, 5, 2, '#ffffff');
+    P(c, 24, 8, 2, 26, '#8a6a46'); P(c, 8, 20, 34, 2, '#8a6a46');
+    // 時計
+    P(c, 47, 10, 14, 14, '#8a6a46'); P(c, 48, 11, 12, 12, '#f8f4e6'); P(c, 53, 13, 2, 5, INK); P(c, 54, 17, 4, 1, INK);
+    // 非常ベル（赤い表示灯）
+    P(c, 49, 40, 10, 10, '#c8303a'); P(c, 51, 42, 6, 6, '#e8606a'); P(c, 53, 44, 2, 2, '#fff2c0');
+    // 薬品棚（奥・2段）
+    P(c, 64, 4, 128, 58, '#5a3a24'); P(c, 66, 6, 124, 52, '#2a1c14');
+    [30, 56].forEach(y => { P(c, 64, y, 128, 4, '#7a5234'); P(c, 64, y + 3, 128, 1, '#4a2e1a'); });
+    const D = SHELF_DECOR;
+    [[30, ['bottle:c', 'jar:w', 'brown', 'flask:c', 'jar:w', 'poly', 'round:c', 'bottle:y', 'jar:w', 'bottle:c', 'brown']],
+     [56, ['flask:b', 'jar:w', 'beaker:c', 'bottle:c', 'round:g', 'jar:s', 'poly', 'flask:c', 'beaker:w', 'bottle:c']]].forEach(([y, items]) => {
+      let x = 69;
+      for (const key of items) { const im = D[key]; if (x + im.width > 189) break; c.drawImage(im, x, y - im.height); x += im.width + 1; }
+    });
+    // 床
+    P(c, 0, 80, 256, 48, '#8d9199');
+    for (let x = 0; x < 256; x += 16) P(c, x, 80, 1, 48, '#7f838b');
+    for (let y = 96; y < 128; y += 16) P(c, 0, y, 256, 1, '#7f838b');
+    // ドラフト（局所排気装置）
+    P(c, 219, 0, 16, 9, '#c3ccd5'); P(c, 219, 0, 1, 9, '#97a3ae'); P(c, 234, 0, 1, 9, '#97a3ae'); P(c, 219, 4, 16, 1, '#a9b4be');
+    P(c, 199, 8, 56, 80, '#8e99a5'); P(c, 200, 9, 54, 78, '#eef1f4');
+    P(c, 201, 10, 52, 6, '#dfe4e9'); P(c, 204, 12, 10, 2, '#3a4652'); P(c, 205, 12, 2, 2, '#5fd35f'); P(c, 246, 12, 4, 2, '#97a3ae');
+    P(c, 202, 17, 50, 38, '#5a6874'); P(c, 203, 18, 48, 36, '#d6dee4');           // 内部
+    P(c, 203, 46, 48, 8, '#c4ced6');
+    P(c, 210, 30, 1, 22, '#4a525a'); P(c, 207, 51, 8, 2, '#4a525a'); P(c, 210, 34, 7, 1, '#4a525a');   // スタンド
+    P(c, 215, 36, 5, 6, '#f2f6f8'); P(c, 216, 34, 3, 2, '#f2f6f8'); P(c, 215, 39, 5, 3, '#f0c8d8');    // フラスコ
+    P(c, 224, 44, 8, 9, '#f2f6f8'); P(c, 224, 48, 8, 5, '#cfe6f6'); P(c, 224, 44, 1, 9, '#9fb2c0'); P(c, 231, 44, 1, 9, '#9fb2c0'); // ビーカー
+    P(c, 236, 40, 5, 13, '#7a3f16'); P(c, 237, 38, 3, 2, '#3a2a20');                                   // 褐色びん
+    P(c, 243, 47, 6, 6, '#f2f2ea'); P(c, 243, 46, 6, 1, '#2f6fbf');
+    c.globalAlpha = .28; P(c, 203, 18, 48, 22, '#9fd0e8'); c.globalAlpha = 1;                           // 上げ下げ窓（サッシ）
+    P(c, 202, 39, 50, 2, '#8e99a5'); P(c, 204, 39, 46, 1, '#c3ccd5');
+    for (let i = 0; i < 8; i++) { P(c, 232 + i, 20 + i * 2, 1, 2, '#ffffff'); P(c, 236 + i, 20 + i * 2, 1, 1, '#ffffff'); }
+    P(c, 201, 55, 52, 3, '#59636e');                                                                    // 作業台
+    P(c, 201, 58, 52, 29, '#dfe4e8'); P(c, 227, 58, 1, 29, '#b3bcc5');
+    P(c, 222, 66, 3, 1, '#7d8893'); P(c, 230, 66, 3, 1, '#7d8893');
+    // 消火器
+    P(c, 191, 74, 6, 15, '#c8303a'); P(c, 192, 75, 1, 13, '#e8606a'); P(c, 192, 71, 4, 3, '#2a2a2a'); P(c, 195, 72, 3, 1, '#2a2a2a'); P(c, 191, 80, 6, 3, '#f0e8d8');
+    // 実験台
+    P(c, 56, 92, 144, 6, '#9aa3b5'); P(c, 56, 92, 144, 1, '#c9d0de'); P(c, 56, 98, 144, 30, '#4a536a');
+    for (let x = 60; x < 200; x += 36) { P(c, x, 102, 30, 20, '#424a60'); P(c, x + 13, 110, 4, 2, '#9aa3b5'); }
+  })(bg.getContext('2d'));
+
+  // 小さな数字（3x5）
+  const DIG = { 1: ['.#.', '##.', '.#.', '.#.', '###'], 2: ['##.', '..#', '.#.', '#..', '###'], 3: ['##.', '..#', '.#.', '..#', '##.'], 4: ['#.#', '#.#', '###', '..#', '..#'] };
+  function digit(c, n, x, y, col) { DIG[n].forEach((r, j) => [...r].forEach((ch, i) => { if (ch === '#') P(c, x + i, y + j, 1, 1, col); })); }
+
+  // =========================================================
+  // 描画ループ
+  // =========================================================
+  const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const SLOT_X = [62, 96, 130, 164];   // 実験台のびんの位置（左端）
+  const BOTTLE_Y = 92 - 34;
+  let lastDraw = 0;
+  const blink = { doc: 0, app: 0 }, nextBlink = { doc: 1500, app: 2600 };
+  let speaker = null, typing = false;
+  const scene = { bottles: [], held: -1, wrong: -1, labeled: false, fx: null, hover: -1, react: null };
+  const FX = { bubbles: '#ffffff', brownGas: '#b0502a', yellowGas: '#c9e04a', whiteFume: '#f4f4f4', blueFlame: '#4aa0ff', steam: '#ffffff', brownSol: '#9a4a1a', bleach: '#f6b6c8', frost: '#e6f2f8', black: '#2a2020', sparks: '#ffb030', pptWhite: '#ffffff', pptGreen: '#b7d49c', pptBlue: '#6aa8e8', pptYellow: '#f0d040', orangeSol: '#e8782a' };
+
+  function frame(t) {
+    requestAnimationFrame(frame);
+    if (t - lastDraw < 50) return;
+    lastDraw = t;
+    ctx.drawImage(bg, 0, 0);
+    const tt = reduceMotion ? 0 : t;
+    // 実験台のびん
+    scene.bottles.forEach((r, i) => {
+      if (i === scene.held) return;
+      const x = SLOT_X[i], lift = (i === scene.hover && !reduceMotion) ? 2 : 0;
+      if (r.fume && !reduceMotion) {
+        for (let k = 0; k < 3; k++) { const yy = BOTTLE_Y - 2 - ((tt / 90 + k * 6) % 16); ctx.globalAlpha = .5 - ((tt / 90 + k * 6) % 16) / 34;
+          P(ctx, x + 10 + Math.round(Math.sin(tt / 300 + k) * 2), Math.round(yy), 2, 2, r.id === 'br2' ? '#c0603a' : '#f4f4f4'); }
+        ctx.globalAlpha = 1;
+      }
+      ctx.drawImage(BOTTLE[r.id], x, BOTTLE_Y - lift);
+      if (i === scene.wrong && Math.floor(t / 200) % 2 === 0) { ctx.globalAlpha = .45; P(ctx, x, BOTTLE_Y, 22, 34, '#ff3040'); ctx.globalAlpha = 1; }
+      P(ctx, x + 7, 100, 8, 9, '#f8f4e6'); digit(ctx, i + 1, x + 9, 102, INK);
+    });
+    // 人物
+    ['doc', 'app'].forEach(k => {
+      if (t > nextBlink[k]) { blink[k] = t + 140; nextBlink[k] = t + 2400 + Math.random() * 2600; }
+      const talk = !reduceMotion && typing && speaker === k && Math.floor(t / 140) % 2 === 0;
+      const x = k === 'doc' ? 6 : 202, y = k === 'doc' ? 62 : 64;
+      ctx.drawImage(SPR[k][t < blink[k] ? 1 : 0][talk ? 1 : 0], x, y);
+    });
+    // みならいが持っているびん
+    if (scene.held >= 0) {
+      const r = scene.bottles[scene.held], x = 190, y = 76 + (reduceMotion ? 0 : Math.round(Math.sin(t / 260)));
+      ctx.drawImage(BOTTLE[r.id], x, y);
+      if (scene.labeled) { P(ctx, x + 4, y + 16, 14, 9, '#f8f4e6'); P(ctx, x + 6, y + 18, 10, 1, '#7a6a5a'); P(ctx, x + 6, y + 20, 8, 1, '#7a6a5a'); P(ctx, x + 6, y + 22, 9, 1, '#7a6a5a'); }
+    }
+    // 反応の演出（びんの上に泡・煙・炎）
+    if (scene.react && t < scene.react.until && scene.held >= 0) {
+      const col = FX[scene.react.fx], cx = 201, top = 74;
+      if (col) for (let i = 0; i < 16; i++) {
+        const p = reduceMotion ? (i * 5) % 36 : ((t / 45 + i * 9) % 36);
+        const x = Math.round(cx + Math.sin(i * 1.7 + t / 300) * (scene.react.fx === 'blueFlame' ? 3 : 7)), y = Math.round(top - p);
+        ctx.globalAlpha = Math.max(0, 1 - p / 36);
+        P(ctx, x, y, i % 3 ? 2 : 3, i % 3 ? 2 : 3, (scene.react.fx === 'blueFlame' && i % 2) ? '#bfe4ff' : col);
+      }
+      ctx.globalAlpha = 1;
+    }
+    // 演出（キラッ／×）
+    if (scene.fx && t < scene.fx.until) {
+      const { x, y, ok } = scene.fx, b = reduceMotion ? 0 : Math.round(Math.sin(t / 120));
+      if (ok) { const g = '#f6d860'; P(ctx, x, y - 3 + b, 1, 7, g); P(ctx, x - 3, y + b, 7, 1, g); P(ctx, x - 1, y - 1 + b, 3, 3, g); P(ctx, x + 6, y - 6 + b, 1, 1, g); P(ctx, x - 5, y - 5 + b, 1, 1, g); }
+      else { const r = '#ff5060'; for (let i = 0; i < 7; i++) { P(ctx, x - 3 + i, y - 3 + i + b, 2, 1, r); P(ctx, x + 3 - i, y - 3 + i + b, 2, 1, r); } }
+    }
+  }
+  requestAnimationFrame(frame);
+  // キャンバス上のびんをクリック／タップで選べる
+  function slotAt(ev) {
+    const b = cv.getBoundingClientRect(), x = (ev.clientX - b.left) / b.width * 256, y = (ev.clientY - b.top) / b.height * 128;
+    if (y < BOTTLE_Y - 4 || y > 110) return -1;
+    return SLOT_X.findIndex(sx => x >= sx && x < sx + 22);
+  }
+  cv.addEventListener('pointermove', ev => { if (step !== 'pick' || picked) { scene.hover = -1; return; } scene.hover = slotAt(ev); cv.classList.toggle('pickable', scene.hover >= 0); });
+  cv.addEventListener('pointerleave', () => { scene.hover = -1; });
+  cv.addEventListener('click', ev => { if (step === 'pick' && !picked) { const i = slotAt(ev); if (i >= 0) pick(i); } });
+
+  // =========================================================
+  // ゲーム進行
+  // =========================================================
+  const $ = id => document.getElementById(id);
+  // ===== 表示の切りかえ（false にすると、A案・B案を入れる前の表示に戻る） =====
+  const LAYOUT = {
+    stickyStage: true,     // A案：スマホ・タブレットでドット絵を画面の上に固定
+    compactResult: true,   // B案：ラベル・実験の結果を短くまとめ、選択肢やタイルをたたむ
+  };
+  document.documentElement.dataset.sticky = LAYOUT.stickyStage ? 'on' : 'off';
+  // 化学式は I・1・l の形がはっきり違う書体で表示する
+  const fmt = s => `<span class="chem">${s.replace(/([A-Za-z)])(\d+)/g, '$1<sub>$2</sub>').replace(/\^(\d*[+-])/g, (m, c) => `<sup>${c.replace('-', '−')}</sup>`)}</span>`;
+  const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const store = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+
+  let ask = store.get('shiyaku.ask', 'name'), total = store.get('shiyaku.total', 10), range = store.get('shiyaku.range', 'nm');
+  if (![5, 10, 15, 'all'].includes(total)) total = 10;
+  let lifeSel = store.get('shiyaku.life', 3); if (![3, 5, 7].includes(lifeSel)) lifeSel = 3;
+  if (!['name', 'hint', 'random'].includes(ask)) ask = 'name';
+  if (!['nm', 'tm', 'tr', 'all', 'bm'].includes(range)) range = 'nm';
+  // 付せん＝ブックマーク（この端末のブラウザに保存）
+  const bm = new Set(store.get('shiyaku.bm', []).filter(id => R.some(r => r.id === id)));
+  const saveBm = () => store.set('shiyaku.bm', R.filter(r => bm.has(r.id)).map(r => r.id));
+  // まちがえた試薬には、自動で付せんをはる（あとで「付せんの試薬で遊ぶ」で復習できる）
+  function autoFusen() { if (!target || bm.has(target.id)) return; bm.add(target.id); saveBm(); syncBm(); if (cur) cur.autoFusen = true; }
+  function toggleBm(id) { if (bm.has(id)) bm.delete(id); else bm.add(id); saveBm(); syncBm(); }
+  function syncBm() {
+    document.querySelectorAll('[data-bm]').forEach(b => { const on = bm.has(b.dataset.bm); b.setAttribute('aria-pressed', String(on)); b.innerHTML = `<i class="fu" aria-hidden="true"></i>${on ? '付せんをはがす' : '付せんをはる'}`; });
+    document.querySelectorAll('[data-star]').forEach(el => { el.innerHTML = bm.has(el.dataset.star) ? '<i class="fu on" aria-label="付せん"></i>' : ''; });
+    if (step === 'menu') renderCounts();
+  }
+  // 物質ノートの記録：{ 試薬id: { c: 出題された回数, p: かんぺきの回数 } }（この端末のブラウザに保存）
+  const seen = (() => { const v = store.get('shiyaku.seen', {}); return v && typeof v === 'object' ? v : {}; })();
+  function recordCur() {
+    if (!cur || cur.recorded || cur.pickOk === null) return;   // 試薬を選ぶところまで進んだ依頼だけ記録
+    cur.recorded = true;
+    const e = seen[cur.r.id] || { c: 0, p: 0 };
+    if (!e.c) cur.isNew = true;
+    e.c++; if (cur.pickOk && cur.labelOk && cur.rxOk) e.p++;
+    seen[cur.r.id] = e; store.set('shiyaku.seen', seen);
+    cur.awards = checkAwards();
+  }
+  // コンプリート特典：全物質を記録→完成証と助手の金バッジ、全物質かんぺき→マスターの証
+  const seenN = () => R.filter(r => seen[r.id]).length;
+  const perfectN = () => R.filter(r => seen[r.id] && seen[r.id].p).length;
+  const isComplete = () => seenN() === R.length;
+  const isMaster = () => perfectN() === R.length;
+  const awards = (() => { const v = store.get('shiyaku.awards', {}); return v && typeof v === 'object' ? v : {}; })();
+  refreshAppSprite();
+  const today = () => new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
+  function checkAwards() {   // 新しく達成したものを返す
+    const got = [];
+    if (isComplete() && !awards.complete) { awards.complete = today(); got.push('complete'); }
+    if (isMaster() && !awards.master) { awards.master = today(); got.push('master'); }
+    if (got.length) store.set('shiyaku.awards', awards);
+    if (got.includes('complete')) refreshAppSprite();
+    return got;
+  }
+  const poolOf = g => g === 'all' ? R : g === 'bm' ? R.filter(x => bm.has(x.id)) : R.filter(x => x.g === g);
+  function renderCounts() {
+    $('compTag').hidden = !awards.complete; $('compTag').textContent = awards.master ? '👑 マスター' : '🏅 コンプリート';
+    ['nm', 'tm', 'tr', 'all', 'bm'].forEach(g => { $('cnt-' + g).textContent = `試薬 ${poolOf(g).length} 種`; });
+    const n = poolOf(range).length;
+    $('allLabel').textContent = `全${n}件`;
+    // 範囲の試薬より多い件数は選べない
+    [...$('numOpts').children].forEach(b => { if (b.dataset.v !== 'all') b.disabled = +b.dataset.v > n; });
+    if (total !== 'all' && total > n) { total = 'all'; store.set('shiyaku.total', total); press('numOpts', total); }
+    $('startBtn').disabled = n === 0;
+  }
+  let pool = poolOf(range);
+  let plan = [], k = 0, life = 5, maxLife = 5, step = 'menu', picked = false, target = null, choices = [], sel = new Set(), log = [], cur = null;
+  let typeTimer = null;
+
+  function say(who, html, side) {
+    clearInterval(typeTimer);
+    const talk = $('talk'); talk.hidden = false;
+    talk.className = 'talk ' + (side || (who === 'doc' ? 'left' : 'right'));
+    $('who').textContent = who === 'doc' ? '博士' : '助手';
+    speaker = who; typing = true;
+    // タグを壊さずに1文字ずつ表示
+    const parts = html.split(/(<[^>]+>)/).filter(Boolean);
+    let n = 0; const len = parts.reduce((s, p) => s + (p[0] === '<' ? 0 : p.length), 0);
+    const render = m => { let left = m, out = ''; for (const p of parts) { if (p[0] === '<') { out += p; continue; } if (left <= 0) break; out += p.slice(0, left); left -= p.length; } $('line').innerHTML = out; };
+    if (reduceMotion) { render(len); typing = false; return; }
+    typeTimer = setInterval(() => { n += 2; render(n); if (n >= len) { clearInterval(typeTimer); typing = false; } }, 35);
+  }
+  function show(ids) { ['menu', 'pickPanel', 'labelPanel', 'expPanel', 'reviewPanel'].forEach(id => $(id).hidden = !ids.includes(id)); }
+  function renderLife(hurt) {
+    const el = $('life');
+    el.innerHTML = Array.from({ length: maxLife }, (_, i) => `<i class="${i < life ? '' : 'off'}">♥</i>`).join('');
+    el.setAttribute('aria-label', `ライフ ${life} / ${maxLife}`);
+    if (hurt) { el.classList.remove('hurt'); void el.offsetWidth; el.classList.add('hurt'); }
+  }
+  function press(groupId, v) { [...$(groupId).children].forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === String(v)))); }
+
+  function toMenu() {
+    if (step !== 'end') recordCur();
+    backFrom = null;
+    step = 'menu'; show(['menu']); $('meta').hidden = true;
+    $('titleScreen').hidden = false; $('endScreen').hidden = true; $('talk').hidden = true;
+    scene.bottles = []; scene.held = -1;
+    press('askOpts', ask); press('lifeOpts', lifeSel); press('numOpts', total); press('rangeOpts', range); renderCounts();
+  }
+  function start() {
+    pool = poolOf(range);
+    // まだ物質ノートに記録されていない物質は、少しだけ選ばれやすくする（重み 2 : 1 の重み付きシャッフル）
+    const UNSEEN_W = 2;
+    plan = pool.map(r => ({ r, key: Math.pow(Math.random(), 1 / (seen[r.id] ? 1 : UNSEEN_W)) }))
+      .sort((a, b) => b.key - a.key).map(x => x.r)
+      .slice(0, total === 'all' ? pool.length : Math.min(total, pool.length));
+    maxLife = lifeSel; life = maxLife; k = 0; log = [];
+    $('titleScreen').hidden = true; $('endScreen').hidden = true; $('meta').hidden = false;
+    renderLife(false);
+    nextRequest();
+  }
+  function nextRequest() {
+    recordCur();
+    if (k >= plan.length || life <= 0) return finish();
+    target = plan[k]; picked = false; backFrom = null;
+    const mode = ask === 'random' ? (Math.random() < .5 ? 'name' : 'hint') : ask;   // ランダムなら、依頼ごとに名称か性質
+    $('bmBtn').dataset.bm = target.id; syncBm(); cur = { r: target, pickOk: null, labelOk: null, rxOk: null }; log.push(cur); cur.mode = mode;
+    // 同じ見た目のびんが並ぶと区別しにくいので、見た目が重ならないものを優先して3本えらぶ
+    // まちがいのびんは、同じ範囲の試薬から選ぶ
+    const others = [...shuffle(pool.filter(r => r !== target)), ...shuffle(R.filter(r => r !== target && !pool.includes(r)))];
+    const pickN = [], looks = new Set([target.look]);
+    const same = others.filter(r => pool.includes(r));
+    // まず、まちがえやすい試薬（名前・性質が似ているもの）を入れる
+    for (const r of shuffle(CONFUSE[target.id] || [])) {
+      if (pickN.length < 3 && (mode === 'name' || canTell(target, r))) { pickN.push(r); looks.add(r.look); }
+    }
+    if (mode === 'name') {
+      for (const r of same) { if (pickN.length < 3 && !pickN.includes(r) && !looks.has(r.look)) { pickN.push(r); looks.add(r.look); } }   // 同じ範囲・見た目ちがい
+      for (const r of others) { if (pickN.length < 3 && !pickN.includes(r)) pickN.push(r); }                         // 足りなければ同じ範囲から、それでも足りなければほかの範囲から
+    } else {
+      // 性質で頼むときは、「気体」「酸」などの名詞や見た目で答えが分からないよう、同じ種類のものを優先して並べる
+      // （性質で区別できないものは並べない）
+      const okR = others.filter(r => canTell(target, r));
+      for (const r of okR) { if (pickN.length < 3 && pool.includes(r) && r.n === target.n && !pickN.includes(r)) pickN.push(r); }
+      for (const r of okR) { if (pickN.length < 3 && pool.includes(r) && r.look === target.look && !pickN.includes(r)) pickN.push(r); }
+      for (const r of okR) { if (pickN.length < 3 && !pickN.includes(r)) pickN.push(r); }
+    }
+    choices = shuffle([target, ...pickN]);
+    scene.bottles = choices; scene.held = -1; scene.wrong = -1; scene.labeled = false; scene.fx = null; scene.react = null;
+    step = 'pick';
+    $('qnum').textContent = `依頼 ${k + 1} / ${plan.length}`;
+    show(['pickPanel']);
+    cur.clue = clueFor(target, choices);
+    const req = mode === 'name' ? `<b>${target.name}</b>を取ってくれんか。` : `<b>${cur.clue.text}</b>を取ってくれんか。`;
+    say('doc', `助手くん、${req}`);
+    $('pickLead').innerHTML = mode === 'name' ? `博士「<b>${target.name}</b>を取ってくれんか」` : `博士「<b>${cur.clue.text}</b>を取ってくれんか」`;
+    const box = $('bottles'); box.innerHTML = '';
+    choices.forEach((r, i) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'bottle px';
+      b.innerHTML = `<span class="num">${i + 1}</span><span><span class="f">${fmt(r.f)}</span>${mode === 'name' ? `<small>${LOOK_NAME[r.look]}</small>` : ''}</span>`;
+      b.addEventListener('click', () => pick(i));
+      box.append(b);
+    });
+    $('pickFb').hidden = true;
+    firstFocus();
+  }
+  function pick(i) {
+    if (picked) return;
+    picked = true; scene.hover = -1; cv.classList.remove('pickable');
+    const ok = choices[i] === target, ti = choices.indexOf(target);
+    cur.pickOk = ok;
+    [...$('bottles').children].forEach((b, j) => { b.disabled = true; if (j === ti) b.classList.add('correct'); else if (j === i) b.classList.add('wrong'); });
+    $('pickFb').hidden = false;
+    requestAnimationFrame(() => $('pickFb').scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' }));
+    const v = $('pickVerdict');
+    if (ok) {
+      v.className = 'verdict ok'; v.textContent = 'それじゃ！';
+      $('pickNote').innerHTML = `${target.name}は <b style="font-weight:400;font-family:var(--f-pixel)">${fmt(target.f)}</b>。${target.where}に入っている。`;
+      scene.held = ti; scene.fx = { x: 222, y: 72, ok: true, until: performance.now() + 1200 };
+      say('app', 'はい、どうぞ！');
+    } else {
+      life--; renderLife(true); autoFusen();
+      v.className = 'verdict ng'; v.textContent = 'ちがうぞい…（ライフ −1）';
+      $('pickNote').innerHTML = `それは <b style="font-weight:400;font-family:var(--f-pixel)">${choices[i].name}（${fmt(choices[i].f)}）</b>。${target.name}は <b style="font-weight:400;font-family:var(--f-pixel)">${fmt(target.f)}</b>（${target.where}）じゃ。`;
+      scene.wrong = i; scene.fx = { x: SLOT_X[i] + 11, y: BOTTLE_Y - 8, ok: false, until: performance.now() + 1200 };
+      say('doc', `それは${choices[i].name}じゃよ。${target.name}はこっちじゃ。`);
+      setTimeout(() => { if (step === 'pick') { scene.wrong = -1; scene.held = ti; } }, 1300);
+    }
+    // まちがえたら、この物質はここまでにして、つぎの物質の依頼へ
+    $('toLabelBtn').textContent = life <= 0 ? '結果を見る ▶' : cur.pickOk === false ? (k + 1 >= plan.length ? '結果を見る ▶' : 'つぎの依頼へ ▶') : 'ラベルを書く ▶';
+    $('toLabelBtn').focus({ preventScroll: true });
+  }
+  function toLabel() {
+    if (life <= 0) return finish();
+    if (cur.pickOk === false) { k++; return nextRequest(); }
+    step = 'label'; scene.held = choices.indexOf(target); scene.wrong = -1; sel = new Set();
+    show(['labelPanel']);
+    $('lbName').textContent = target.name;
+    $('lbFormula').innerHTML = fmt(target.f);
+    // 正しいものは 2〜3 個、まちがいと合わせて 5 個にする
+    // 性質モードでは、依頼で使った性質（hk）はラベルに出さず、正しいものを3つ以上にする
+    const okPool = cur.mode === 'hint' ? target.ok.filter((_, i) => !cur.clue.okUsed.includes(i)) : target.ok;
+    const nOk = cur.mode === 'hint' ? Math.min(okPool.length, Math.random() < .5 ? 3 : 4) : (Math.random() < .5 ? 2 : 3);
+    const oks = shuffle(okPool).slice(0, nOk).map(t => ({ t, ok: true }));
+    const ngs = shuffle(target.ng).slice(0, cur.mode === 'hint' ? 3 : 5 - oks.length).map(([t, why]) => ({ t, ok: false, why }));
+    cur.props = shuffle([...oks, ...ngs]);
+    const box = $('props'); box.innerHTML = '';
+    cur.props.forEach((p, i) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'prop px'; b.setAttribute('aria-pressed', 'false');
+      b.innerHTML = `<span class="box" aria-hidden="true"></span><span class="tx">${p.t}</span>`;
+      b.addEventListener('click', () => { if (sel.has(i)) sel.delete(i); else sel.add(i); b.setAttribute('aria-pressed', String(sel.has(i))); $('pasteBtn').disabled = sel.size === 0; });
+      box.append(b);
+    });
+    $('pasteBtn').disabled = true; $('pasteRow').hidden = false; $('labelFb').hidden = true;
+    $('labelHelp').after($('props'));
+    $('props').hidden = false; $('labelHelp').hidden = false; $('labelSum').hidden = true; $('showAllBtn').hidden = true;
+    say('doc', `では、${target.name}のびんに<b>ラベル</b>を貼っておくれ。性質は正しく書くんじゃぞ。`);
+    firstFocus();
+  }
+  function paste() {
+    if (!sel.size) return;
+    let miss = 0;
+    [...$('props').children].forEach((b, i) => {
+      const p = cur.props[i], on = sel.has(i); b.disabled = true;
+      if (p.ok && on) b.classList.add('hit');
+      else if (!p.ok && on) { b.classList.add('miss'); miss++; }
+      else if (p.ok && !on) { b.classList.add('lost'); miss++; b.querySelector('.tx').insertAdjacentHTML('beforeend', '<span class="why">← これも正しい</span>'); }
+      if (!p.ok) b.querySelector('.tx').insertAdjacentHTML('beforeend', `<span class="why">✕ ${p.why}</span>`);
+    });
+    const ok = miss === 0; cur.labelOk = ok;
+    $('pasteRow').hidden = true; $('labelFb').hidden = false;
+    const v = $('labelVerdict');
+    if (ok) {
+      v.className = 'verdict ok'; v.textContent = 'かんぺきなラベルじゃ！';
+      scene.labeled = true; scene.fx = { x: 222, y: 72, ok: true, until: performance.now() + 1400 };
+      say('doc', 'うむ、よく書けておる。');
+    } else {
+      life--; renderLife(true); autoFusen();
+      v.className = 'verdict ng'; v.textContent = 'ラベルにまちがいがあるぞ（ライフ −1）';
+      scene.labeled = true; scene.fx = { x: 222, y: 72, ok: false, until: performance.now() + 1400 };
+      say('doc', 'むむ、このラベルでは事故のもとじゃ。');
+    }
+    $('labelNote').innerHTML = target.note;
+    if (LAYOUT.compactResult) {
+      const it = (cls, mk, t, sub) => `<li class="${cls}"><span class="mk">${mk}</span>${t}${sub ? `<small>${sub}</small>` : ''}</li>`;
+      const okRows = cur.props.map((p, i) => ({ p, on: sel.has(i) })).filter(x => x.p.ok);
+      const badRows = cur.props.map((p, i) => ({ p, on: sel.has(i) })).filter(x => !x.p.ok && x.on);
+      $('labelSum').innerHTML = `<h3>正しい性質</h3><ul>${okRows.map(x => x.on ? it('hit', '◯', x.p.t) : it('lost', '△', x.p.t, '選びわすれ')).join('')}</ul>` +
+        (badRows.length ? `<h3>まちがえて選んだもの</h3><ul>${badRows.map(x => it('miss', '✕', x.p.t, x.p.why)).join('')}</ul>` : '');
+      $('labelSum').hidden = false; $('props').hidden = true; $('labelHelp').hidden = true;
+      $('showAllBtn').hidden = false; $('showAllBtn').textContent = '選択肢をすべて見る';
+    }
+    $('labelFb').scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+    $('nextBtn').textContent = life <= 0 ? '結果を見る ▶' : cur.labelOk === false ? (k + 1 >= plan.length ? '結果を見る ▶' : 'つぎの依頼へ ▶') : '実験する ▶';
+    $('nextBtn').focus({ preventScroll: true });
+  }
+  // ---------- ③ 実験 ----------
+  let ex = null;
+  function toExp() {
+    if (life <= 0) return finish();
+    if (cur.labelOk === false) { k++; return nextRequest(); }
+    step = 'exp'; scene.react = null;
+    const pick = target.rx[Math.floor(Math.random() * target.rx.length)];
+    show(['expPanel']);
+    loadStep(pick, 0);
+    firstFocus();
+  }
+  // 1本の反応式（または何段階かの反応式の1段階）を出す
+  // 反応式のプレーンな文字列（係数は化学式にくっつける）
+  function eqText(rx) {
+    let t = '', glue = true;
+    rx.parts.forEach((p, i) => {
+      if (typeof p === 'string') { t += (glue ? '' : ' ') + p.trim(); glue = false; return; }
+      const nx = rx.parts[i + 1];
+      const coef = /^\d+$/.test(rx.ans[p]) && (typeof nx === 'number' || (typeof nx === 'string' && !/^\s*[→⇄+]/.test(nx)));
+      t += (glue ? '' : ' ') + rx.ans[p]; glue = coef;
+    });
+    return t.replace(/(^|[^\^\d])\+(?!\s)/g, '$1+ ').replace(/([^\s])([→⇄])/g, '$1 $2').replace(/([→⇄])(?=\S)/g, '$1 ').trim();
+  }
+  // 穴の位置を毎回ランダムに選びなおす（係数の穴・化学式の穴の数は元の問題と同じ）
+  function randomizeBlanks(rx) {
+    const words = eqText(rx).split(/\s+/);
+    const terms = [], seq = [];
+    words.forEach(w => { if (/^[+→⇄]$/.test(w)) seq.push(w); else { const m = w.match(/^(\d*)(.+)$/); const t = { c: m[1] ? +m[1] : 1, f: m[2] }; terms.push(t); seq.push(t); } });
+    const nC = rx.ans.filter(a => /^\d+$/.test(a)).length, nF = rx.ans.length - nC;
+    for (let tries = 0; tries < 40; tries++) {
+      const F = shuffle(terms.filter(t => t.f !== 'e^-')).slice(0, nF);
+      const need = F.filter(t => t.c > 1);              // 係数が見えたまま化学式だけ穴にはしない
+      if (need.length > nC) continue;
+      const C = [...need, ...shuffle(terms.filter(t => t.c > 1 && !need.includes(t))).slice(0, nC - need.length)];
+      if (C.length < nC) continue;
+      const parts = [], ans = []; let buf = '';
+      const flush = () => { if (buf.trim()) parts.push(buf.trim().replace(/\s+/g, ' ')); buf = ''; };
+      seq.forEach(t => {
+        if (typeof t === 'string') { buf += ' ' + t + ' '; return; }
+        if (C.includes(t)) { flush(); parts.push(ans.length); ans.push(String(t.c)); }
+        if (F.includes(t)) { flush(); parts.push(ans.length); ans.push(t.f); }
+        else buf += (C.includes(t) ? '' : (t.c > 1 ? t.c : '')) + t.f + ' ';
+      });
+      flush();
+      const nums = rx.dummy.filter(d => /^\d+$/.test(d) && !ans.includes(d));
+      const want = rx.dummy.filter(d => /^\d+$/.test(d)).length;
+      for (const n of ['2', '3', '4', '5', '6', '8']) if (nums.length < want && !ans.includes(n) && !nums.includes(n)) nums.push(n);
+      const forms = rx.dummy.filter(d => !/^\d+$/.test(d) && !ans.includes(d));
+      return { ...rx, parts, ans, dummy: [...(nC ? nums : []), ...forms] };
+    }
+    return rx;
+  }
+  function loadStep(pick, ci) {
+    const rx = randomizeBlanks(pick.chain ? pick.chain[ci] : pick);
+    ex = { pick, ci, rx, tiles: shuffle([...rx.ans, ...rx.dummy]), slots: rx.ans.map(() => null), active: 0, done: false, marks: null, chainMiss: ci > 0 && ex ? ex.chainMiss : false };
+    const lead = pick.chain ? `${ci === 0 ? pick.say : ''}<br><b>${rx.say}</b>` : rx.say;
+    $('expLead').innerHTML = `博士「${lead.replace(/^<br>/, '')}${ex.rx.ans.some(a => /^\d+$/.test(a)) ? COEF : '化学式を□に入れておくれ。'}」`;
+    say('doc', pick.chain ? (ci === 0 ? pick.say : rx.say) : rx.say);
+    $('expFb').hidden = true; $('reactRow').hidden = false; eqMsg('');
+    $('tray').hidden = false;
+    renderEq();
+  }
+  const isCoef = p => /^\d+$/.test(ex.rx.ans[p]);
+  const tileIsNum = i => /^\d+$/.test(ex.tiles[i]);
+  const KIND_MSG = { true: '［　］には係数（数字）だけが入るぞ。', false: '□には化学式だけが入るぞ。' };
+  function eqMsg(t) { $('eqMsg').textContent = t || ''; }
+  // タップ：選んでいるわくと種類が合えばそこへ、合わなければ同じ種類の空いたわくへ
+  function tapTile(i) {
+    const num = tileIsNum(i);
+    let slot = isCoef(ex.active) === num ? ex.active : ex.slots.findIndex((v, p) => v == null && isCoef(p) === num);
+    if (slot < 0) { eqMsg(num ? '係数のわくはうまっています。わくをタップしてタイルを戻してから入れよう。' : '化学式のわくはうまっています。わくをタップしてタイルを戻してから入れよう。'); return; }
+    placeTile(slot, i);
+  }
+  function placeTile(slot, i) {
+    if (isCoef(slot) !== tileIsNum(i)) { eqMsg(KIND_MSG[isCoef(slot)]); renderEq(); return; }
+    eqMsg('');
+    ex.slots[slot] = i;
+    const empty = ex.slots.findIndex(v => v == null);
+    if (empty >= 0) ex.active = empty;
+    renderEq();
+  }
+  function cycleSlot(p) {
+    const coef = isCoef(p);
+    // 同じ文字のタイル（「2」が2枚など）は1回だけ出す
+    const cand = [], txt = new Set();
+    ex.tiles.forEach((t, i) => {
+      if (tileIsNum(i) !== coef || (ex.slots.includes(i) && ex.slots[p] !== i)) return;
+      if (txt.has(t)) { if (ex.slots[p] === i) cand[cand.findIndex(c => ex.tiles[c] === t)] = i; return; }
+      txt.add(t); cand.push(i);
+    });
+    const at = ex.slots[p] == null ? -1 : cand.indexOf(ex.slots[p]);
+    ex.slots[p] = at + 1 < cand.length ? cand[at + 1] : null;
+    ex.active = p; refocus = { slot: p }; eqMsg(''); renderEq();
+  }
+  // 化学式がタイルやわくからはみ出すときは、収まるまで字を小さくする（スマホの細い画面用）
+  function fitText(el) {
+    el.style.fontSize = '';
+    let size = parseFloat(getComputedStyle(el).fontSize);
+    while (el.scrollWidth > el.clientWidth + 1 && size > 10) { size -= 1; el.style.fontSize = size + 'px'; }
+  }
+  function renderEq() {
+    const eq = $('eq'); eq.innerHTML = '';
+    let glue = null;   // 係数のわくは、すぐ後ろの化学式（わく）と同じ行にまとめる
+    const tok = html => { const sp = document.createElement('span'); sp.className = 'fx'; sp.innerHTML = html; return sp; };
+    ex.rx.parts.forEach(p => {
+      if (typeof p === 'string') {
+        const words = p.trim().split(/\s+/);
+        if (glue && !/^[→⇄+]/.test(words[0])) glue.append(tok(fmt(words.shift())));
+        glue = null;
+        words.forEach(w => eq.append(tok(fmt(w))));
+        return;
+      }
+      const coef = isCoef(p);
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'slot' + (coef ? ' coef' : ''); b.dataset.slot = p;
+      const ti = ex.slots[p];
+      const inner = ti == null ? (coef ? '　' : '&nbsp;') : fmt(ex.tiles[ti]);
+      b.innerHTML = coef ? `<span class="v">${inner}</span>` : inner;
+      if (ti != null && ex.tiles[ti].length > 13) b.querySelector('.chem').classList.add('xlong');
+      b.setAttribute('aria-label', (coef ? '係数のわく' : '化学式のわく') + (ti == null ? '（から）' : `：${ex.tiles[ti]}`));
+      if (ex.done) { b.classList.add(ex.marks[p] ? 'ok' : 'ng'); b.disabled = true; }
+      else if (p === ex.active) b.classList.add('on');
+      b.addEventListener('click', () => { if (ex.done) return; ex.slots[p] = null; ex.active = p; refocus = { slot: p }; renderEq(); });
+      // キーボード：わくの上で Enter（Space）を押すたびに、候補のタイルを順に入れる（最後の次は空にもどる）
+      b.addEventListener('keydown', e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); e.stopPropagation(); if (!ex.done) cycleSlot(p); });
+      b.addEventListener('focus', () => { if (ex.done || ex.active === p) return; ex.active = p; document.querySelectorAll('#eq .slot').forEach(x => x.classList.toggle('on', +x.dataset.slot === p)); });
+      if (glue) { glue.append(b); glue = coef ? glue : null; }
+      else { const g = document.createElement('span'); g.className = 'fx'; g.append(b); eq.append(g); glue = coef ? g : null; }
+    });
+    const tray = $('tray'); tray.innerHTML = '';
+    const groups = {};
+    [['num', '係数'], ['chem', '化学式']].forEach(([k, name]) => { const g = document.createElement('div'); g.className = 'tgroup'; g.innerHTML = `<span class="tl">${name}</span>`; tray.append(g); groups[k] = g; });
+    ex.tiles.forEach((t, i) => {
+      const num = tileIsNum(i);
+      const b = document.createElement('button'); b.type = 'button'; const len = t.replace(/\^.*$/, '').length;   // 長い化学式（水和物など）は小さめの字にして、タイルからはみ出さないようにする
+      b.className = 'tile px' + (num ? ' num' : '') + (len > 13 ? ' xlong' : len > 9 ? ' long' : ''); b.innerHTML = fmt(t);
+      const used = ex.slots.includes(i);
+      if (used) b.classList.add('used');
+      b.disabled = ex.done || used;
+      b.dataset.tile = i;
+      b.addEventListener('click', () => { if (dragMoved) { dragMoved = false; return; } refocus = { tile: i, num }; tapTile(i); });
+      b.addEventListener('pointerdown', ev => startDrag(ev, i, b));
+      groups[num ? 'num' : 'chem'].append(b);
+    });
+    Object.values(groups).forEach(g => { g.hidden = g.children.length <= 1; });
+    document.querySelectorAll('#tray .tile, #eq .slot:not(.coef)').forEach(fitText);
+    $('reactBtn').disabled = ex.done || ex.slots.some(v => v == null);
+    restoreFocus();
+  }
+  // 描き直したあとも、キーボードの位置をなくさない
+  let refocus = null;
+  function restoreFocus() {
+    const rf = refocus; refocus = null;
+    if (!rf || ex.done) return;
+    let el = null;
+    if (rf.slot != null) el = document.querySelector(`#eq .slot[data-slot="${rf.slot}"]`);
+    else {
+      const tiles = [...document.querySelectorAll('#tray .tile')];
+      el = tiles.find(t => +t.dataset.tile === rf.tile && !t.disabled)
+        || (ex.slots.every(v => v != null) ? $('reactBtn') : null)
+        || tiles.find(t => !t.disabled && t.classList.contains('num') === rf.num)
+        || tiles.find(t => !t.disabled);
+    }
+    if (el) el.focus({ preventScroll: true });
+  }
+  // ドラッグ＆ドロップ（マウス・タッチ共通）
+  let drag = null, dragMoved = false;
+  const slotUnder = (x, y) => { const el = document.elementFromPoint(x, y); const sl = el && el.closest('.slot'); return sl && !sl.disabled ? sl : null; };
+  // ドラッグ中のタイル（または指先）が触れている、同じ種類のわく（重なりがいちばん大きいもの）
+  function slotTouching(ghost, x, y, num) {
+    const g = ghost.getBoundingClientRect();
+    let best = null, bestA = 0;
+    document.querySelectorAll('#eq .slot').forEach(sl => {
+      if (sl.disabled || isCoef(+sl.dataset.slot) !== num) return;
+      const r = sl.getBoundingClientRect();
+      const w = Math.min(g.right, r.right) - Math.max(g.left, r.left), h = Math.min(g.bottom, r.bottom) - Math.max(g.top, r.top);
+      let area = w > 0 && h > 0 ? w * h : 0;
+      if (x >= r.left - 6 && x <= r.right + 6 && y >= r.top - 6 && y <= r.bottom + 6) area += 1e6;   // 指先がわくの上
+      if (area > bestA) { bestA = area; best = sl; }
+    });
+    return best;
+  }
+  function unpreview(sl) { if (sl.dataset.prev != null) { sl.innerHTML = sl.dataset.prev; delete sl.dataset.prev; } sl.classList.remove('drop', 'over-filled'); }
+  function startDrag(ev, i, el) {
+    if (ex.done || ev.button > 0) return;
+    drag = { i, el, x0: ev.clientX, y0: ev.clientY, ghost: null, over: null };
+    dragMoved = false;
+    el.setPointerCapture(ev.pointerId);
+    el.addEventListener('pointermove', moveDrag);
+    el.addEventListener('pointerup', endDrag);
+    el.addEventListener('pointercancel', endDrag);
+  }
+  function moveDrag(ev) {
+    if (!drag) return;
+    if (!drag.ghost) {
+      if (Math.hypot(ev.clientX - drag.x0, ev.clientY - drag.y0) < 6) return;
+      drag.ghost = drag.el.cloneNode(true); drag.ghost.classList.add('drag-clone'); document.body.append(drag.ghost);
+      drag.el.classList.add('used');
+    }
+    drag.ghost.style.left = ev.clientX + 'px'; drag.ghost.style.top = ev.clientY + 'px';
+    const sl = slotTouching(drag.ghost, ev.clientX, ev.clientY, tileIsNum(drag.i));
+    if (sl !== drag.over) {
+      if (drag.over) unpreview(drag.over);
+      drag.over = sl;
+      if (sl) {   // 入れる前に、わくの中身を新しいタイルで見せる（上書きのときは点線）
+        sl.dataset.prev = sl.innerHTML;
+        if (ex.slots[+sl.dataset.slot] != null) sl.classList.add('over-filled');
+        const html = fmt(ex.tiles[drag.i]);
+        sl.innerHTML = sl.classList.contains('coef') ? `<span class="v">${html}</span>` : html;
+        sl.classList.add('drop');
+      }
+    }
+  }
+  function endDrag(ev) {
+    if (!drag) return;
+    const d = drag; drag = null;
+    d.el.removeEventListener('pointermove', moveDrag); d.el.removeEventListener('pointerup', endDrag); d.el.removeEventListener('pointercancel', endDrag);
+    if (!d.ghost) return;            // 動かしていなければ、ふつうのタップとして扱う
+    dragMoved = true;
+    d.ghost.remove();
+    if (d.over) unpreview(d.over);
+    const sl = ev.type === 'pointerup' ? (d.over || slotUnder(ev.clientX, ev.clientY)) : null;   // 種類ちがいは placeTile が断る
+    if (sl) placeTile(+sl.dataset.slot, d.i);
+    else renderEq();
+    setTimeout(() => { dragMoved = false; }, 0);
+  }
+  function react() {
+    if (ex.done || ex.slots.some(v => v == null)) return;
+    const user = ex.slots.map(i => ex.tiles[i]), ans = ex.rx.ans;
+    ex.marks = user.map((u, i) => u === ans[i]);
+    const ok = ex.marks.every(Boolean);
+    ex.done = true;
+    const chain = ex.pick.chain, lastStep = !chain || ex.ci === chain.length - 1;
+    // 何段階かの実験は、どこかでまちがえても減るライフは1つだけ
+    const lose = !ok && !ex.chainMiss;
+    if (!ok) ex.chainMiss = true;
+    cur.rxOk = (cur.rxOk === null || ex.ci === 0 ? true : cur.rxOk) && ok;
+    if (!ok) autoFusen();
+    renderEq();
+    $('reactRow').hidden = true; $('expFb').hidden = false;
+    if (LAYOUT.compactResult) { $('tray').hidden = true; eqMsg(''); }
+    let full = '';
+    ex.rx.parts.forEach((p, i) => {
+      if (typeof p === 'string') { full += fmt(p.trim()) + ' '; return; }
+      const nx = ex.rx.parts[i + 1];
+      const coef = /^\d+$/.test(ans[p]) && (typeof nx === 'number' || (typeof nx === 'string' && !/^\s*[→⇄+]/.test(nx)));
+      full += `<u>${fmt(ans[p])}</u>` + (coef ? '' : ' ');
+    });
+    full = full.trim();
+    $('expAns').innerHTML = full;
+    $('expNote').innerHTML = ex.rx.note;
+    const v = $('expVerdict');
+    if (ok) {
+      v.className = 'verdict ok'; v.textContent = '反応成功じゃ！';
+      scene.react = { fx: ex.rx.fx, until: performance.now() + 3500 };
+      scene.fx = { x: 222, y: 72, ok: true, until: performance.now() + 1400 };
+      say('doc', 'ほっほっ、みごとに反応したのう。');
+    } else {
+      if (lose) { life--; renderLife(true); }
+      v.className = 'verdict ng'; v.textContent = lose ? '反応式がちがうぞ（ライフ −1）' : '反応式がちがうぞ';
+      scene.fx = { x: 222, y: 72, ok: false, until: performance.now() + 1400 };
+      say('doc', 'むむ、この式では反応せんぞ。正しい式をよく見ておくんじゃ。');
+    }
+    if (ok && chain && !lastStep) say('doc', 'よし、つぎの段階じゃ。');
+    $('expNextBtn').textContent = life <= 0 ? '結果を見る ▶' : (!lastStep && ok) ? `第${ex.ci + 2}段階へ ▶` : (k + 1 >= plan.length ? '結果を見る ▶' : 'つぎの依頼へ ▶');
+    $('expFb').scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+    $('expNextBtn').focus({ preventScroll: true });
+  }
+
+  const RANKS = [[1, '博士の右腕', 'これなら研究室をまかせられるぞい。'], [.75, '研究員', '頼もしくなってきたのう。'], [.5, '一人前の助手', 'あと少しで研究員じゃ。'], [0, '新米助手', 'まずは試薬の性質を見直しておくんじゃ。']];
+  function finish() {
+    recordCur();
+    step = 'end'; scene.bottles = []; scene.held = -1; $('meta').hidden = true;
+    const perfect = log.filter(l => l.pickOk && l.labelOk && l.rxOk).length;
+    const done = life > 0;
+    const [, rank, msg] = RANKS.find(([p]) => perfect / plan.length >= p);
+    $('endScreen').hidden = false;
+    $('endBig').textContent = done ? `${perfect} / ${plan.length} かんぺき` : 'ライフが なくなった…';
+    $('endRank').innerHTML = done ? `きょうの称号は <b>${rank}</b>` : `${log.length} 件目で 実験中止`;
+    $('endMsg').textContent = done ? msg : '博士「きょうはここまでじゃ。ふりかえって、また来るんじゃぞ。」';
+    $('talk').hidden = true; speaker = null;
+    $('review').innerHTML = log.map(l => {
+      const ok = l.pickOk && l.labelOk && l.rxOk;
+      const why = [l.pickOk === false ? '取りちがえ' : '', l.labelOk === false ? 'ラベルまちがい' : '', l.rxOk === false ? '反応式まちがい' : ''].filter(Boolean).join('・') || '途中で終了';
+      return `<li><span class="t"><span class="mk ${ok ? 'ok' : 'ng'}">${ok ? '◯' : '✕'}</span>${l.r.name}（${fmt(l.r.f)}）${l.isNew ? '<span class="badge new">NEW</span>' : ''}<button class="bmbtn" type="button" data-bm="${l.r.id}"></button></span>` +
+        `<small>${ok ? l.r.where : why + '　→ 正しい性質：' + l.r.ok.join('／')}</small></li>`;
+    }).join('');
+    const autoN = log.filter(l => l.autoFusen).length;
+    const newN = log.filter(l => l.isNew).length;
+    const notes = [];
+    const won = log.flatMap(l => l.awards || []);
+    if (won.includes('complete')) notes.push('🏅 <b>物質ノートがコンプリートしたぞ！</b>全部の物質に出会ったな。物質ノートに完成証をはっておいた。助手くんの白衣には、金のバッジじゃ。');
+    if (won.includes('master')) notes.push('👑 <b>全物質かんぺき！</b>きみこそ「試薬棚マスター」じゃ。物質ノートの完成証が金色になったぞ。');
+    if (newN) notes.push(`📓 物質ノートに、新しく ${newN} 種の物質を記録したぞ（${Object.keys(seen).filter(id => R.some(r => r.id === id)).length} / ${R.length} 種）。`);
+    if (autoN) notes.push(`<i class="fu on" aria-hidden="true"></i>まちがえた ${autoN} 種の試薬に、付せんをはっておいたぞ。タイトル画面の「付せん一覧」から復習できる。`);
+    $('reviewNote').hidden = !notes.length; $('reviewNote').innerHTML = notes.join('<br>');
+    show(['reviewPanel']); syncBm();
+    firstFocus();
+  }
+
+  $('lifeOpts').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (!b) return; lifeSel = +b.dataset.v; store.set('shiyaku.life', lifeSel); press('lifeOpts', lifeSel); });
+  $('askOpts').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (!b) return; ask = b.dataset.v; store.set('shiyaku.ask', ask); press('askOpts', ask); });
+  $('numOpts').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (!b) return; total = b.dataset.v === 'all' ? 'all' : +b.dataset.v; store.set('shiyaku.total', total); press('numOpts', total); });
+  $('rangeOpts').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (!b) return; range = b.dataset.v; store.set('shiyaku.range', range); press('rangeOpts', range); renderCounts(); });
+  $('startBtn').addEventListener('click', start);
+  // 1つ前へもどる：前の画面（答えた結果）を見直す
+  const STEPS = ['pickPanel', 'labelPanel', 'expPanel'];
+  let backFrom = null;   // 見直し中なら、いま進行中の画面
+  function goBack() {
+    const cur = STEPS.find(id => !$(id).hidden);
+    const i = STEPS.indexOf(cur);
+    if (i <= 0) return;
+    if (!backFrom) backFrom = cur;
+    showStep(STEPS[i - 1]);
+  }
+  function goForward(id) { if (id === backFrom) backFrom = null; showStep(id); }
+  function showStep(id) {
+    show([id]);
+    const btn = { pickPanel: 'toLabelBtn', labelPanel: 'nextBtn' }[id];
+    if (backFrom && btn) { $(btn).focus({ preventScroll: true }); $(id).scrollIntoView({ block: 'nearest' }); }
+    else firstFocus();
+  }
+  document.addEventListener('click', e => { if (e.target.closest('[data-back]')) goBack(); });
+  $('toLabelBtn').addEventListener('click', () => backFrom ? goForward('labelPanel') : toLabel());
+  $('pasteBtn').addEventListener('click', paste);
+  $('showAllBtn').addEventListener('click', () => {
+    const open = $('props').hidden;
+    $('props').hidden = !open;
+    $('showAllBtn').textContent = open ? '選択肢をたたむ' : '選択肢をすべて見る';
+    // ひらいた選択肢は結果の下に並べる
+    if (open) $('showAllBtn').after($('props')); else $('labelHelp').after($('props'));
+  });
+  $('nextBtn').addEventListener('click', () => backFrom ? goForward('expPanel') : toExp());
+  $('reactBtn').addEventListener('click', react);
+  $('expNextBtn').addEventListener('click', () => {
+    if (life > 0 && ex.pick.chain && ex.ci < ex.pick.chain.length - 1 && !ex.chainMiss) { scene.react = null; loadStep(ex.pick, ex.ci + 1); firstFocus(); return; }
+    k++; nextRequest();
+  });
+  $('retryBtn').addEventListener('click', start);
+  $('menuBtn').addEventListener('click', toMenu);
+  $('quitBtn').addEventListener('click', toMenu);
+  // ---------- キーボードだけで遊ぶ ----------
+  // ↑↓←→：画面上の近いボタンへ移動　Enter／Space：決定　Backspace／Delete：選んだわくを空にする　Esc：やめる
+  // 閉じた <details> の中身は、位置があっても見えていないので除く（自分の summary は別）
+  const inClosed = el => { for (let d = el.closest('details'); d; d = d.parentElement && d.parentElement.closest('details')) { if (!d.open && !(el.tagName === 'SUMMARY' && el.parentElement === d)) return true; } return false; };
+  const shown = el => { const b = el.getBoundingClientRect(); return b.width > 0 && b.height > 0 && !el.closest('[hidden]') && !inClosed(el); };
+  const listOpen = () => !$('listPage').hidden;
+  const navItems = () => [...document.querySelectorAll(listOpen() ? '#listPage button:not([disabled]), #listPage summary' : '.side button:not([disabled])')].filter(shown);
+  function moveFocus(dir) {
+    const items = navItems(); if (!items.length) return false;
+    const cur = document.activeElement;
+    if (!items.includes(cur)) { if (listOpen()) items[0].focus(); else firstFocus(); return true; }
+    const a = cur.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+    let best = null, bestScore = Infinity;
+    items.forEach(el => {
+      if (el === cur) return;
+      const b = el.getBoundingClientRect(), bx = b.left + b.width / 2, by = b.top + b.height / 2;
+      const dx = bx - ax, dy = by - ay;
+      const main = { left: -dx, right: dx, up: -dy, down: dy }[dir];
+      const side = (dir === 'left' || dir === 'right') ? Math.abs(dy) : Math.abs(dx);
+      // 同じ行（左右）／同じ列の近く（上下）を優先
+      const sameLine = (dir === 'left' || dir === 'right') ? (b.bottom > a.top + 2 && b.top < a.bottom - 2) : true;
+      if (main <= 4) return;
+      if (!sameLine && listOpen()) return;   // 一覧では、左右は同じ行の中だけ
+      const score = main + side * (sameLine ? 1 : 3) + (sameLine ? 0 : 1000 * ((dir === 'left' || dir === 'right') ? 1 : 0));
+      if (score < bestScore) { bestScore = score; best = el; }
+    });
+    if (!best) return false;   // その方向にボタンがなければ、ふつうにスクロールさせる
+    best.focus({ preventScroll: true });
+    best.scrollIntoView({ block: (dir === 'up' || dir === 'down') ? 'center' : 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+    return true;
+  }
+  // それぞれの場面で、最初にフォーカスするボタン
+  function firstFocus() {
+    const pickFirst = sel => { const el = [...document.querySelectorAll(sel)].find(e => !e.disabled && shown(e)); if (el) { el.focus({ preventScroll: true }); el.scrollIntoView({ block: 'nearest' }); return true; } return false; };
+    if (step === 'menu') return pickFirst('#startBtn');
+    if (step === 'pick') return picked ? pickFirst('#toLabelBtn') : pickFirst('#bottles .bottle');
+    if (step === 'label') return $('pasteRow').hidden ? pickFirst('#nextBtn') : pickFirst('#props .prop');
+    if (step === 'exp') return ex && ex.done ? pickFirst('#expNextBtn') : (pickFirst('#tray .tile') || pickFirst('#reactBtn'));
+    if (step === 'end') return pickFirst('#retryBtn');
+  }
+
+  // =========================================================
+  // 物質ノート（一度でも出題された物質が記録されていく）
+  // =========================================================
+  const GROUP_LABEL = { nm: '非金属元素', tm: '典型金属元素', tr: '遷移元素' };
+  function eqFull(rx) { return eqText(rx).split(/\s+/).map(w => /^[+→⇄]$/.test(w) ? w : fmt(w)).join(' '); }
+  let listGroup = 'all';
+  function renderList() {
+    $('listTabs').querySelectorAll('[data-v]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === listGroup)));
+    const card = r => {
+      const e = seen[r.id], no = `<span class="no">No.${String(R.indexOf(r) + 1).padStart(2, '0')}</span>`;
+      if (!e) return `<div class="lp-card lp-locked px" aria-label="まだ記録されていない物質">${no}<span class="q">？？？</span><span class="chem">？</span><small>まだ出会っていない物質</small></div>`;
+      const badges = `<span class="badges">${e.p ? '<span class="crown" role="img" aria-label="かんぺき" title="かんぺきに答えた">👑</span>' : ''}<button class="bmbtn" type="button" data-bm="${r.id}"></button></span>`;
+      const eqs = RX[r.id].flatMap(x => x.chain ? x.chain.map((st, i) => ({ ...st, tag: `${x.chain.length}段階の${i + 1}` })) : [x]);
+      return `<details class="lp-card px"><summary>${no}<span>${r.name}</span>${fmt(r.f)}${badges}</summary>
+        <div class="lp-body">
+        <p class="lp-where">保存：${r.where}</p>
+        <ul>${r.ok.map(t => `<li>${t}</li>`).join('')}</ul>
+        <p class="lp-note">${r.note}</p>
+        <details><summary>反応式を見る（${eqs.length}）</summary><ul class="lp-eq">${eqs.map(x => `<li>${eqFull(x)}<small>${x.tag ? '［' + x.tag + '］' : ''}${x.note}</small></li>`).join('')}</ul></details>
+        </div></details>`;
+    };
+    if (listGroup === 'bm') {
+      const list = poolOf('bm');
+      $('listBody').innerHTML = `<h2 class="lp-grp"><i class="fu" aria-hidden="true"></i>付せん（${list.length}種）</h2>` + (list.length
+        ? `<div class="lp-tools" style="margin:8px 0 10px"><button class="btn small px" id="playBmBtn" type="button">付せんの試薬で遊ぶ</button></div><div class="lp-list">${list.map(card).join('')}</div>`
+        : '<p class="lp-empty">まだ付せんをはった試薬がありません。ゲーム中の「付せんをはる」や、この一覧の各試薬から、見直したい試薬に付せんをはれます。</p>');
+      if (list.length) $('playBmBtn').addEventListener('click', () => { range = 'bm'; store.set('shiyaku.range', range); closeList(); toMenu(); start(); });
+    } else {
+      const gs = listGroup === 'all' ? ['nm', 'tm', 'tr'] : [listGroup];
+      const got = list => list.filter(r => seen[r.id]).length;
+      const all = gs.flatMap(g => poolOf(g)), n = got(all), pf = all.filter(r => seen[r.id] && seen[r.id].p).length;
+      const prog = `<div class="nb-prog px"><div class="row"><span class="big">記録した物質　${n} / ${all.length} 種</span><span>${Math.round(n / all.length * 100)}%</span></div>
+        <div class="nb-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${all.length}" aria-valuenow="${n}"><i style="width:${n / all.length * 100}%"></i></div>
+        <small>👑＝かんぺきに答えられた物質（${pf} 種）。まだ出会っていない物質は、ゲームで出会うとノートに記録されます。</small></div>`;
+      const cert = awards.complete ? `<div class="cert px${awards.master ? ' gold' : ''}">
+        <p class="t">${awards.master ? '👑 試薬棚マスター認定証' : '🏅 物質ノート 完成証'}</p>
+        <p>助手 殿</p>
+        <p>${awards.master ? `あなたは博士の試薬棚の ${R.length} 種の物質すべてを、かんぺきに答えました。ここに「試薬棚マスター」と認めます。` : `あなたは博士の試薬棚の ${R.length} 種の物質すべてに出会い、物質ノートを完成させました。その努力をたたえ、これを授けます。`}</p>
+        <p class="d">${awards.master || awards.complete}　　博士</p>
+        ${awards.master ? '' : `<small>つぎの目標：全物質かんぺき（いま ${perfectN()} / ${R.length} 種）</small>`}
+      </div>` : '';
+      const stamp = g => got(poolOf(g)) === poolOf(g).length ? '<span class="badge pf">✔ 記録完了</span>' : '';
+      $('listBody').innerHTML = cert + prog + gs.map(g => `<h2 class="lp-grp">${GROUP_LABEL[g]}（${got(poolOf(g))} / ${poolOf(g).length} 種）${stamp(g)}</h2><div class="lp-list">${poolOf(g).map(card).join('')}</div>`).join('');
+    }
+    syncBm();
+  }
+  let listFrom = null;
+  function openList(g) {
+    if (g) listGroup = g;
+    listFrom = document.activeElement;
+    renderList();
+    document.querySelector('main.wrap').hidden = true; $('listPage').hidden = false;
+    window.scrollTo(0, 0); $('listBack').focus();
+  }
+  function closeList() {
+    $('listPage').hidden = true; document.querySelector('main.wrap').hidden = false;
+    window.scrollTo(0, 0); if (step === 'menu') renderCounts();
+    (listFrom && document.body.contains(listFrom) ? listFrom : $('listBtn')).focus();
+  }
+  $('listBtn').addEventListener('click', () => openList(listGroup === 'bm' ? 'all' : null));
+  $('bmListBtn').addEventListener('click', () => openList('bm'));
+  $('listBack').addEventListener('click', closeList);
+  $('listBack2').addEventListener('click', closeList);
+  $('openAllBtn').addEventListener('click', () => $('listBody').querySelectorAll('details.lp-card').forEach(d => d.open = true));
+  $('closeAllBtn').addEventListener('click', () => $('listBody').querySelectorAll('details.lp-card').forEach(d => d.open = false));
+  document.addEventListener('click', e => { const b = e.target.closest('[data-bm]'); if (b) { e.preventDefault(); toggleBm(b.dataset.bm); } });
+  $('listTabs').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (!b) return; listGroup = b.dataset.v; renderList(); b.focus(); });
+
+  document.addEventListener('keydown', e => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (listOpen()) {   // 物質ノート：↑↓←→で移動、Enter／Spaceで開く・押す、Escでタイトルへ
+      const d = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' }[e.key];
+      if (d) { if (moveFocus(d) || d === 'left' || d === 'right') e.preventDefault(); return; }
+      if (e.key === 'Escape') { e.preventDefault(); closeList(); }
+      return;
+    }
+    const k = e.key, n = +k;
+    const dir = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' }[k];
+    if (dir) { if (moveFocus(dir) || dir === 'left' || dir === 'right') e.preventDefault(); return; }
+    if (k === 'Escape' && step !== 'menu') { e.preventDefault(); toMenu(); $('startBtn').focus(); return; }
+    if ((k === 'Backspace' || k === 'Delete') && step === 'exp' && ex && !ex.done) {
+      e.preventDefault();
+      const p = document.activeElement && document.activeElement.dataset.slot != null ? +document.activeElement.dataset.slot : ex.active;
+      if (ex.slots[p] != null) { ex.slots[p] = null; ex.active = p; refocus = { slot: p }; renderEq(); }
+      return;
+    }
+    if (k === 'Enter' && !(document.activeElement && document.activeElement.tagName === 'BUTTON')) { firstFocus(); e.preventDefault(); return; }
+    if (step === 'pick' && !picked && n >= 1 && n <= 4) { pick(n - 1); e.preventDefault(); }
+    else if (step === 'label' && !$('pasteRow').hidden && n >= 1 && n <= $('props').children.length) { $('props').children[n - 1].click(); e.preventDefault(); }
+  });
+  toMenu();
+})();
+</script>
+
+</body>
+</html>
