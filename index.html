@@ -2383,7 +2383,10 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
     $('qnum').textContent = `試料 ${anaK + 1} / ${anaPlan}`;
     show(['anaPanel']);
     const col = sampleColor(set);
-    const intro = `助手くん、ラベルがはがれた水溶液が見つかったんじゃ。何の金属イオンが入っているか、調べてくれんか。（${lv.n}種類入っているはずじゃ）`;
+    // 1問目は導入、2問目からは「次は」、最後の1問は「最後は」
+    const ask = `何の金属イオンが入っているか、調べてくれんか。（${lv.n}種類入っているはずじゃ）`;
+    const intro = anaK === 0 ? `助手くん、ラベルがはがれた水溶液が見つかったんじゃ。${ask}`
+      : anaK === anaPlan - 1 ? `最後はこれじゃ。${ask}` : `次はこれじゃ。${ask}`;
     say('doc', intro);
     $('anaLead').innerHTML = `博士「${intro}」<br><small style="font-family:var(--f-body)">水溶液の色：<b>${colText(col)}</b>　試料は少しずつ取り分けて、${lv.tries}回まで試せる。</small>`;
     $('anaTest').hidden = false; $('anaReportRow').hidden = false; $('anaReport').hidden = true; $('anaFb').hidden = true;
