@@ -246,6 +246,34 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
 .review .bmbtn { margin-left: auto; padding: 1px 8px; }
 .opt:disabled { opacity: .5; cursor: default; }
 #rangeOpts [data-v="bm"] { grid-column: 1 / -1; }
+/* 系統分析 */
+#modeOpts, #levelOpts { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; }
+#levelOpts .opt { padding: 8px 6px; text-align: center; }
+.reagents { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: 8px; }
+.reagent { text-align: left; font-family: var(--f-body); font-size: .88rem; line-height: 1.4; border: 0; cursor: pointer; background: var(--panel-2); color: var(--text); --c: var(--line); padding: 7px 10px; margin: var(--px); }
+.reagent:hover:not(:disabled) { --c: var(--gold); }
+.reagent:disabled { opacity: .45; cursor: default; }
+.reagent.done { opacity: .55; }
+.reagent.done::after { content: ' ✓'; color: var(--accent); }
+.ana-left { margin: 0; font-family: var(--f-pixel); color: var(--muted); }
+.ana-left b { color: var(--head); font-weight: 400; }
+.anote { margin: 0; padding-left: 1.4em; display: grid; gap: 4px; font-size: .9rem; }
+.anote li b { font-weight: 700; }
+.ana-h { margin: 0; font-family: var(--f-pixel); font-weight: 400; font-size: .95rem; color: var(--head); }
+.ions { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 520px) { .ions { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.ion { border: 0; cursor: pointer; background: var(--panel-2); color: var(--text); --c: var(--line); padding: 8px 4px; margin: var(--px); font-size: 1.05rem; }
+.ion[aria-pressed="true"] { background: var(--sel); --c: var(--gold); }
+.ion.dim { opacity: .4; cursor: default; }
+.ion small { display: block; font-size: .68rem; color: var(--muted); font-family: var(--f-body); }
+.ion-tbl { width: 100%; border-collapse: collapse; font-size: .86rem; }
+.ion-tbl th, .ion-tbl td { text-align: left; padding: 3px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.ion-tbl th { font-weight: 400; color: var(--muted); width: 42%; }
+.cand { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: .95rem; padding: 3px 10px; background: var(--panel-2); color: var(--text); border: 0; cursor: pointer; box-shadow: inset 0 0 0 1px var(--line); font-family: inherit; }
+.chip:hover { box-shadow: inset 0 0 0 2px var(--gold); }
+.chip.out { opacity: .3; text-decoration: line-through; }
+.chip.sure { background: var(--ok); color: var(--ok-ink); box-shadow: none; }
 /* 物質ノート（コレクション） */
 .nb-prog { display: grid; gap: 6px; background: var(--panel); --c: var(--line); margin: var(--px); padding: 10px 14px; }
 .nb-prog .row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-family: var(--f-pixel); }
@@ -339,6 +367,20 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
 
     <section class="panel px" id="menu">
       <div class="lp-tools"><button class="linkbtn" id="listBtn" type="button">📓 物質ノート ▶</button><span class="badge pf" id="compTag" hidden></span><button class="linkbtn" id="bmListBtn" type="button"><i class="fu" aria-hidden="true"></i>付せん一覧 ▶</button></div>
+      <h2>モード</h2>
+      <div class="opts" id="modeOpts">
+        <button class="opt px" type="button" data-v="label" aria-pressed="true"><b>試薬を取る</b></button>
+        <button class="opt px" type="button" data-v="ana" aria-pressed="false"><b>🧪 系統分析</b></button>
+      </div>
+      <div id="anaSettings" hidden style="display:grid;gap:14px">
+        <h2>難易度</h2>
+        <div class="opts" id="levelOpts">
+          <button class="opt px" type="button" data-v="1" aria-pressed="true"><b>初級</b><small>1種類・3回</small></button>
+          <button class="opt px" type="button" data-v="2" aria-pressed="false"><b>中級</b><small>2種類・4回</small></button>
+          <button class="opt px" type="button" data-v="3" aria-pressed="false"><b>上級</b><small>3種類・5回</small></button>
+        </div>
+      </div>
+      <div id="labelSettings" style="display:grid;gap:14px">
       <h2>範囲</h2>
       <div class="opts" id="rangeOpts">
         <button class="opt px" type="button" data-v="nm" aria-pressed="true"><b>非金属元素</b><small id="cnt-nm"></small></button>
@@ -353,7 +395,8 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
         <button class="opt px" type="button" data-v="hint" aria-pressed="false"><b>性質</b></button>
         <button class="opt px" type="button" data-v="random" aria-pressed="false"><b>ランダム</b></button>
       </div>
-      <h2>依頼の数</h2>
+      </div>
+      <h2 id="numH">依頼の数</h2>
       <div class="opts" id="numOpts">
         <button class="opt px" type="button" data-v="5" aria-pressed="false"><b>5件</b></button>
         <button class="opt px" type="button" data-v="10" aria-pressed="true"><b>10件</b></button>
@@ -414,6 +457,31 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
       </div>
     </section>
 
+    <section class="panel px" id="anaPanel" hidden>
+      <h2>🧪 系統分析</h2>
+      <p class="lead" id="anaLead"></p>
+      <p class="ana-left" id="anaLeft"></p>
+      <div id="anaCand"></div>
+      <div id="anaTest">
+        <div class="reagents" id="reagents"></div>
+      </div>
+      <h3 class="ana-h">実験ノート</h3>
+      <ol class="anote" id="anaNote"></ol>
+      <div class="row-end stick" id="anaReportRow"><button class="btn px" id="anaReportBtn" type="button">報告する ▶</button></div>
+      <div id="anaReport" hidden style="display:grid;gap:10px">
+        <p class="note" id="anaReportHelp"></p>
+        <div class="ions" id="ionOpts"></div>
+        <div class="row-end stick"><button class="btn ghost px" id="anaBackBtn" type="button">◀ 調べなおす</button><button class="btn px" id="anaSubmitBtn" type="button" disabled>これで報告する</button></div>
+      </div>
+      <div class="feedback" id="anaFb" hidden>
+        <p class="verdict" id="anaVerdict"></p>
+        <p id="anaAns"></p>
+        <ul class="anote" id="anaWhy"></ul>
+        <div class="row-end stick" id="anaRetryRow" hidden><button class="btn ghost px" id="anaRevealBtn" type="button">答えを見る ▶</button><button class="btn px" id="anaRetryBtn" type="button">🔁 同じ試料をリトライ</button></div>
+        <div class="row-end stick" id="anaNextRow"><button class="btn px" id="anaNextBtn" type="button">つぎの試料へ ▶</button></div>
+      </div>
+    </section>
+
     <section class="panel px" id="reviewPanel" hidden>
       <h2>ふりかえり</h2>
       <p class="note" id="reviewNote" hidden></p>
@@ -437,6 +505,7 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
     <button class="opt px" type="button" data-v="tm" aria-pressed="false"><b>典型金属元素</b></button>
     <button class="opt px" type="button" data-v="tr" aria-pressed="false"><b>遷移元素</b></button>
     <button class="opt px" type="button" data-v="bm" aria-pressed="false"><b><i class="fu" aria-hidden="true"></i>付せん</b></button>
+    <button class="opt px" type="button" data-v="ion" aria-pressed="false"><b>🧪 金属イオン</b></button>
   </div>
   <div class="lp-tools"><button class="linkbtn" id="openAllBtn" type="button">すべて開く</button><button class="linkbtn" id="closeAllBtn" type="button">すべて閉じる</button></div>
   <div id="listBody"></div>
@@ -1496,6 +1565,31 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
   const scene = { bottles: [], held: -1, wrong: -1, labeled: false, fx: null, hover: -1, react: null };
   const FX = { bubbles: '#ffffff', brownGas: '#b0502a', yellowGas: '#c9e04a', whiteFume: '#f4f4f4', blueFlame: '#4aa0ff', steam: '#ffffff', brownSol: '#9a4a1a', bleach: '#f6b6c8', frost: '#e6f2f8', black: '#2a2020', sparks: '#ffb030', pptWhite: '#ffffff', pptGreen: '#b7d49c', pptBlue: '#6aa8e8', pptYellow: '#f0d040', orangeSol: '#e8782a' };
 
+  // 系統分析のドット絵：中央に試料のビーカー、左に試験管立て
+  function drawAna(c, t) {
+    const a = scene.ana;
+    // ビーカー
+    const bx = 120, by = 62;
+    P(c, bx, by, 24, 30, '#cfe6f2'); P(c, bx + 1, by + 10, 22, 19, a.sample); P(c, bx - 1, by, 26, 2, '#a9c4d4');
+    P(c, bx, by + 29, 24, 1, '#9ebccc'); P(c, bx + 3, by + 4, 1, 22, '#ffffff');
+    P(c, bx + 5, by + 15, 14, 7, '#f8f4e6'); P(c, bx + 7, by + 17, 10, 1, '#c8b088'); P(c, bx + 7, by + 19, 7, 1, '#c8b088');   // はがれかけのラベル
+    P(c, bx + 15, by + 15, 4, 3, '#e8dcc0');
+    // 試験管立て
+    P(c, 60, 86, 52, 4, '#8a6a46'); P(c, 60, 90, 2, 2, '#5a3a24'); P(c, 110, 90, 2, 2, '#5a3a24');
+    a.tubes.slice(-5).forEach((tb, i) => {
+      const x = 64 + i * 10, y = 60;
+      if (tb.flame) {   // 炎色反応：小さなバーナーと炎
+        P(c, x, y + 18, 6, 10, '#7d838c'); const h = reduceMotion ? 8 : 7 + Math.round(Math.sin(t / 120 + i) * 2);
+        P(c, x + 1, y + 18 - h, 4, h, tb.flame); P(c, x + 2, y + 16 - h, 2, 2, tb.flame);
+        return;
+      }
+      P(c, x, y, 6, 28, '#cfe6f2'); P(c, x, y, 6, 1, '#9ebccc');
+      P(c, x + 1, y + 12, 4, 15, tb.liq);
+      if (tb.ppt) P(c, x + 1, y + 22, 4, 5, tb.ppt);
+      if (tb.cloud) { c.globalAlpha = .5; P(c, x + 1, y + 12, 4, 10, '#ffffff'); c.globalAlpha = 1; }
+      P(c, x + 1, y + 1, 1, 24, '#ffffff');
+    });
+  }
   function frame(t) {
     requestAnimationFrame(frame);
     if (t - lastDraw < 50) return;
@@ -1528,6 +1622,7 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
       ctx.drawImage(BOTTLE[r.id], x, y);
       if (scene.labeled) { P(ctx, x + 4, y + 16, 14, 9, '#f8f4e6'); P(ctx, x + 6, y + 18, 10, 1, '#7a6a5a'); P(ctx, x + 6, y + 20, 8, 1, '#7a6a5a'); P(ctx, x + 6, y + 22, 9, 1, '#7a6a5a'); }
     }
+    if (scene.ana) drawAna(ctx, tt);
     // 反応の演出（びんの上に泡・煙・炎）
     if (scene.react && t < scene.react.until && scene.held >= 0) {
       const col = FX[scene.react.fx], cx = 201, top = 74;
@@ -1574,6 +1669,8 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
 
   let ask = store.get('shiyaku.ask', 'name'), total = store.get('shiyaku.total', 10), range = store.get('shiyaku.range', 'nm');
   if (![5, 10, 15, 'all'].includes(total)) total = 10;
+  let mode = store.get('shiyaku.mode', 'label'); if (!['label', 'ana'].includes(mode)) mode = 'label';
+  let level = store.get('shiyaku.level', 1); if (![1, 2, 3].includes(level)) level = 1;
   let lifeSel = store.get('shiyaku.life', 3); if (![3, 5, 7].includes(lifeSel)) lifeSel = 3;
   if (!['name', 'hint', 'random'].includes(ask)) ask = 'name';
   if (!['nm', 'tm', 'tr', 'all', 'bm'].includes(range)) range = 'nm';
@@ -1619,7 +1716,7 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
   function renderCounts() {
     $('compTag').hidden = !awards.complete; $('compTag').textContent = awards.master ? '👑 マスター' : '🏅 コンプリート';
     ['nm', 'tm', 'tr', 'all', 'bm'].forEach(g => { $('cnt-' + g).textContent = `試薬 ${poolOf(g).length} 種`; });
-    const n = poolOf(range).length;
+    const n = mode === 'ana' ? 99 : poolOf(range).length;
     $('allLabel').textContent = `全${n}件`;
     // 範囲の試薬より多い件数は選べない
     [...$('numOpts').children].forEach(b => { if (b.dataset.v !== 'all') b.disabled = +b.dataset.v > n; });
@@ -1643,7 +1740,7 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
     if (reduceMotion) { render(len); typing = false; return; }
     typeTimer = setInterval(() => { n += 2; render(n); if (n >= len) { clearInterval(typeTimer); typing = false; } }, 35);
   }
-  function show(ids) { ['menu', 'pickPanel', 'labelPanel', 'expPanel', 'reviewPanel'].forEach(id => $(id).hidden = !ids.includes(id)); }
+  function show(ids) { ['menu', 'pickPanel', 'labelPanel', 'expPanel', 'anaPanel', 'reviewPanel'].forEach(id => $(id).hidden = !ids.includes(id)); }
   function renderLife(hurt) {
     const el = $('life');
     el.innerHTML = Array.from({ length: maxLife }, (_, i) => `<i class="${i < life ? '' : 'off'}">♥</i>`).join('');
@@ -1657,10 +1754,13 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
     backFrom = null;
     step = 'menu'; show(['menu']); $('meta').hidden = true;
     $('titleScreen').hidden = false; $('endScreen').hidden = true; $('talk').hidden = true;
-    scene.bottles = []; scene.held = -1;
+    scene.bottles = []; scene.held = -1; scene.ana = null;
+    press('modeOpts', mode); press('levelOpts', level); applyMode();
     press('askOpts', ask); press('lifeOpts', lifeSel); press('numOpts', total); press('rangeOpts', range); renderCounts();
   }
   function start() {
+    if (mode === 'ana') return anaStart();
+    $('bmBtn').hidden = false;
     pool = poolOf(range);
     // まだ物質ノートに記録されていない物質は、少しだけ選ばれやすくする（重み 2 : 1 の重み付きシャッフル）
     const UNSEEN_W = 2;
@@ -2145,8 +2245,305 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
     k++; nextRequest();
   });
   $('retryBtn').addEventListener('click', start);
+  $('modeOpts').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (!b) return; mode = b.dataset.v; store.set('shiyaku.mode', mode); press('modeOpts', mode); applyMode(); renderCounts(); });
+  $('levelOpts').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (!b) return; level = +b.dataset.v; store.set('shiyaku.level', level); press('levelOpts', level); });
   $('menuBtn').addEventListener('click', toMenu);
   $('quitBtn').addEventListener('click', toMenu);
+
+  // =========================================================
+  // 🧪 系統分析：ラベルのはがれた水溶液に入っている金属イオンを、試薬を加えて調べる
+  //   試薬ごとの結果は、ION_TESTS の表（イオン × 試薬）から組み立てる
+  //   p:色＝沈殿が残る　x:色＝いったん沈殿してから溶ける　s:色＝溶液の色　c＝わずかに白くにごる　f:色＝炎色反応
+  // =========================================================
+  const IONS = [
+    { id: 'ag', f: 'Ag^+', name: '銀イオン', key: '希塩酸で白色沈殿（熱湯に溶けない）。アンモニア水を過剰に加えると溶ける。クロム酸カリウムで暗赤色の沈殿。' },
+    { id: 'pb', f: 'Pb^2+', name: '鉛(Ⅱ)イオン', key: '希塩酸で白色沈殿（熱湯に溶ける）。希硫酸で白色沈殿、クロム酸カリウムで黄色の沈殿。NaOH 水溶液を過剰に加えると溶ける。' },
+    { id: 'cu', f: 'Cu^2+', name: '銅(Ⅱ)イオン', key: '水溶液は青色。アンモニア水を過剰に加えると深青色の溶液になる。酸性で硫化水素を通じると黒色沈殿。炎色反応は青緑色。' },
+    { id: 'fe', f: 'Fe^3+', name: '鉄(Ⅲ)イオン', key: '水溶液は黄褐色。チオシアン酸カリウムで血赤色になる。塩基を加えると赤褐色の沈殿（過剰でも溶けない）。' },
+    { id: 'al', f: 'Al^3+', name: 'アルミニウムイオン', key: '塩基を加えると白色沈殿。NaOH 水溶液を過剰に加えると溶けるが、アンモニア水を過剰に加えても溶けない。' },
+    { id: 'zn', f: 'Zn^2+', name: '亜鉛イオン', key: '塩基を加えると白色沈殿。NaOH 水溶液にもアンモニア水にも、過剰に加えると溶ける。塩基性で硫化水素を通じると白色沈殿。' },
+    { id: 'ca', f: 'Ca^2+', name: 'カルシウムイオン', key: '炎色反応は橙赤色。希硫酸を加えると白くにごる（CaSO₄ の白色沈殿）。Ba²⁺ とは、クロム酸カリウム（Ba²⁺ は黄色の沈殿、Ca²⁺ は変化なし）や炎色反応で見分ける。' },
+    { id: 'ba', f: 'Ba^2+', name: 'バリウムイオン', key: '炎色反応は黄緑色。希硫酸で白色沈殿。クロム酸カリウムで黄色の沈殿。' },
+    { id: 'na', f: 'Na^+', name: 'ナトリウムイオン', key: '沈殿をつくらない。炎色反応は黄色。黄色がとても強く、ほかのイオンの炎色反応の色をかくしてしまう。' },
+    { id: 'k', f: 'K^+', name: 'カリウムイオン', key: '沈殿をつくらない。炎色反応は赤紫色（Na⁺ があると黄色にかくれて見えにくい）。' },
+  ];
+  const ION_TESTS = [
+    { id: 'hcl', name: '希塩酸', kind: 'add', r: { ag: ['p:白'], pb: ['p:白'] } },
+    { id: 'hot', name: '希塩酸 → 熱湯', kind: 'hot', r: { ag: ['p:白'], pb: ['x:白'] } },
+    { id: 'h2sa', name: '硫化水素（酸性）', kind: 'add', r: { ag: ['p:黒'], pb: ['p:黒'], cu: ['p:黒'] } },
+    { id: 'h2sb', name: '硫化水素（塩基性）', kind: 'add', r: { ag: ['p:黒'], pb: ['p:黒'], cu: ['p:黒'], fe: ['p:黒'], zn: ['p:白'], al: ['p:白'] } },
+    { id: 'nh3s', name: 'アンモニア水（少量）', kind: 'add', r: { ag: ['p:褐'], pb: ['p:白'], cu: ['p:青白'], fe: ['p:赤褐'], al: ['p:白'], zn: ['p:白'] } },
+    { id: 'nh3x', name: 'アンモニア水（過剰）', kind: 'excess', r: { ag: ['x:褐'], pb: ['p:白'], cu: ['x:青白', 's:深青'], fe: ['p:赤褐'], al: ['p:白'], zn: ['x:白'] } },
+    { id: 'naohs', name: 'NaOH 水溶液（少量）', kind: 'add', r: { ag: ['p:褐'], pb: ['p:白'], cu: ['p:青白'], fe: ['p:赤褐'], al: ['p:白'], zn: ['p:白'] } },
+    { id: 'naohx', name: 'NaOH 水溶液（過剰）', kind: 'excess', r: { ag: ['p:褐'], pb: ['x:白'], cu: ['p:青白'], fe: ['p:赤褐'], al: ['x:白'], zn: ['x:白'] } },
+    { id: 'h2so4', name: '希硫酸', kind: 'add', r: { pb: ['p:白'], ba: ['p:白'], ca: ['p:白'] } },
+    { id: 'cro4', name: 'クロム酸カリウム水溶液', kind: 'add', r: { ag: ['p:暗赤'], pb: ['p:黄'], ba: ['p:黄'] } },
+    { id: 'kscn', name: 'チオシアン酸カリウム水溶液', kind: 'add', r: { fe: ['s:血赤'] } },
+    { id: 'flame', name: '炎色反応', kind: 'flame', r: { na: ['f:黄'], k: ['f:赤紫'], ca: ['f:橙赤'], ba: ['f:黄緑'], cu: ['f:青緑'] } },
+  ];
+  const ANA_COL = { 白: '#f4f4f0', 黒: '#2a2626', 褐: '#7a4a2a', 青白: '#9cc8ea', 赤褐: '#9a4a1a', 暗赤: '#8a1e1e', 黄: '#f0d040', 深青: '#2f5fd8', 血赤: '#b0101a', 赤紫: '#c060d0', 橙赤: '#ff7030', 黄緑: '#a8e040', 青緑: '#30c0a0', 混: '#e89a70' };
+  const LEVELS = { 1: { n: 1, tries: 3, label: '初級' }, 2: { n: 2, tries: 4, label: '中級' }, 3: { n: 3, tries: 5, label: '上級' } };
+  const ionById = id => IONS.find(i => i.id === id);
+  const ionFmt = id => fmt(ionById(id).f);
+  // 試料そのものの色（見ればわかる手がかり）
+  function sampleColor(set) { const cu = set.includes('cu'), fe = set.includes('fe'); return cu && fe ? '緑' : cu ? '青' : fe ? '黄褐' : '無'; }
+  const colText = col => col === '無' ? '無色' : col === '緑' ? '緑がかった色' : col + '色';
+  const SAMPLE_HEX = { 無: '#e6f0f8', 青: '#8fc3f0', 黄褐: '#e8c060', 緑: '#b8d080' };
+  // ある試料に、ある試薬を加えたときの結果（トークンの集合）
+  function anaTokens(set, test) {
+    const t = new Set(); set.forEach(id => (test.r[id] || []).forEach(x => t.add(x)));
+    if (test.kind === 'flame') {
+      const f = [...t];
+      if (set.includes('na')) return ['f:黄'];          // Na の黄色はとても強く、ほかの色をかくしてしまう
+      if (f.length >= 2) return ['f:混'];               // 2色以上は、混ざって見分けられない
+    }
+    return [...t].sort();
+  }
+  const anaKey = (set, test) => anaTokens(set, test).join(',');
+  function anaText(set, test) {
+    const tk = anaTokens(set, test), pick = pre => tk.filter(x => x.startsWith(pre)).map(x => x.slice(2));
+    const P = pick('p:'), X = pick('x:'), S = pick('s:'), F = pick('f:'), C = tk.includes('c');
+    const cs = a => a.join('色と') + '色';
+    if (test.kind === 'flame') return !F.length ? '炎の色は変化しなかった' : F[0] === '混' ? '炎にいくつかの色が混ざって見えた' : `炎が${cs(F)}になった`;
+    if (test.kind === 'hot') {
+      if (!P.length && !X.length) return '希塩酸を加えても、沈殿は生じなかった';
+      return '希塩酸で白色沈殿が生じた。熱湯を加えると、' + (X.length && P.length ? '一部が溶けた' : X.length ? 'すべて溶けた' : '溶けなかった');
+    }
+    if (test.kind === 'excess') {
+      const first = [...new Set([...X, ...P])];
+      if (!first.length) return '沈殿は生じなかった';
+      let out = `${cs(first)}の沈殿が生じ、`;
+      if (X.length && !P.length) out += '過剰に加えるとすべて溶けた';
+      else if (!X.length) out += '過剰に加えても溶けなかった';
+      else out += '過剰に加えると';
+      if (X.length && P.length) {
+        const both = X.filter(c => P.includes(c)); out += both.length && X.every(c => P.includes(c)) ? '一部が溶けた' : `${cs(X.filter(c => !P.includes(c)))}の沈殿は溶け、${cs(P)}の沈殿は残った`;
+      }
+      if (S.length) out += `（溶液は${cs(S)}）`;
+      return out;
+    }
+    const parts = [];
+    if (P.length) parts.push(`${cs(P)}の沈殿が生じた`);
+    if (C) parts.push('わずかに白くにごった');
+    if (S.length) parts.push(`溶液が${cs(S)}になった`);
+    return parts.length ? parts.join('。') : '変化はなかった';
+  }
+  // 試験管の絵に使う色
+  function anaTube(set, test) {
+    const tk = anaTokens(set, test), get = pre => tk.filter(x => x.startsWith(pre)).map(x => x.slice(2));
+    const P = get('p:'), S = get('s:'), F = get('f:');
+    if (test.kind === 'flame') return { flame: F.length ? ANA_COL[F[0]] : '#ffb030' };
+    return { liq: S.length ? ANA_COL[S[0]] : SAMPLE_HEX[sampleColor(set)], ppt: P.length ? ANA_COL[P[0]] : tk.includes('c') ? '#f4f4f0' : null, cloud: tk.includes('c') };
+  }
+  // n 種類の組み合わせ
+  const combos = (arr, n) => n === 0 ? [[]] : arr.flatMap((x, i) => combos(arr.slice(i + 1), n - 1).map(c => [x, ...c]));
+  // 試料を作る：決められた回数以内の試薬で、ほかの組み合わせと必ず見分けられるものだけ
+  function anaMakeSample(lv) {
+    const { n, tries } = LEVELS[lv];
+    const all = combos(IONS.map(i => i.id), n);
+    for (let g = 0; g < 200; g++) {
+      // まだ出会っていないイオンをふくむ組み合わせを、少し選ばれやすくする
+      const cand = all[Math.floor(Math.random() * all.length)];
+      if (!cand.some(id => !ionSeen[id]) && Math.random() < .4) continue;
+      const rivals = all.filter(c => c.join() !== cand.join() && sampleColor(c) === sampleColor(cand));
+      const masks = rivals.map(c => ION_TESTS.reduce((m, t, i) => anaKey(c, t) !== anaKey(cand, t) ? m | (1 << i) : m, 0));
+      if (masks.some(m => m === 0)) continue;
+      let ok = false;
+      for (let m = 1; m < (1 << ION_TESTS.length) && !ok; m++) {
+        let bits = 0; for (let x = m; x; x &= x - 1) bits++;
+        if (bits <= tries && masks.every(mm => mm & m)) ok = true;
+      }
+      if (ok) return cand;
+    }
+    return combos(IONS.map(i => i.id), n)[0];
+  }
+  // 記録（金属イオンのページ）：{ イオンid: { c: 出会った回数, p: 正しく見抜いた回数 } }
+  const ionSeen = (() => { const v = store.get('shiyaku.ionSeen', {}); return v && typeof v === 'object' ? v : {}; })();
+
+  let anaPlan = 0, anaK = 0, anaCur = null, anaLog = [];
+  function applyMode() {
+    const ana = mode === 'ana';
+    $('anaSettings').hidden = !ana; $('labelSettings').hidden = ana;
+    [...$('numOpts').children].forEach(b => { if (b.dataset.v === 'all') b.hidden = ana; });
+    $('numH').textContent = ana ? '試料の数' : '依頼の数';
+  }
+  function anaStart() {
+    anaPlan = total === 'all' ? 10 : total; anaK = 0; anaLog = [];
+    maxLife = lifeSel; life = maxLife;
+    $('titleScreen').hidden = true; $('endScreen').hidden = true; $('meta').hidden = false; $('bmBtn').hidden = true;
+    renderLife(false);
+    anaNext();
+  }
+  function anaNext() {
+    if (anaK >= anaPlan || life <= 0) return anaFinish();
+    const lv = LEVELS[level], set = anaMakeSample(level);
+    anaCur = { set, used: [], left: lv.tries, report: new Set(), crossed: new Set(), done: false };
+    step = 'ana'; scene.bottles = []; scene.held = -1; scene.fx = null; scene.react = null;
+    scene.ana = { sample: SAMPLE_HEX[sampleColor(set)], tubes: [] };
+    $('qnum').textContent = `試料 ${anaK + 1} / ${anaPlan}`;
+    show(['anaPanel']);
+    const col = sampleColor(set);
+    const intro = `助手くん、ラベルがはがれた水溶液が見つかったんじゃ。何の金属イオンが入っているか、調べてくれんか。（${lv.n}種類入っているはずじゃ）`;
+    say('doc', intro);
+    $('anaLead').innerHTML = `博士「${intro}」<br><small style="font-family:var(--f-body)">水溶液の色：<b>${colText(col)}</b>　試料は少しずつ取り分けて、${lv.tries}回まで試せる。</small>`;
+    $('anaTest').hidden = false; $('anaReportRow').hidden = false; $('anaReport').hidden = true; $('anaFb').hidden = true;
+    $('anaRetryRow').hidden = true; $('anaNextRow').hidden = false;
+    renderAna();
+    firstFocus();
+  }
+  // 候補メモ：10種類のイオンを、自分で「ちがう」と思ったら押して消しておける（もう一度押すと戻る）
+  function renderCand() {
+    const c = anaCur;
+    $('anaCand').innerHTML = `<p class="note" style="margin:0 0 6px">候補メモ：ちがうと思うイオンを押して消しておこう（もう一度押すと戻る）</p>` +
+      `<div class="cand">${IONS.map(i => `<button class="chip${c.crossed.has(i.id) ? ' out' : ''}" type="button" data-x="${i.id}" aria-pressed="${c.crossed.has(i.id)}" title="${i.name}">${ionFmt(i.id)}</button>`).join('')}</div>`;
+  }
+  function renderAna() {
+    const c = anaCur;
+    $('anaLeft').innerHTML = `のこり <b>${c.left}</b> 回　` + '🧪'.repeat(c.left) + '<span style="opacity:.25">' + '🧪'.repeat(LEVELS[level].tries - c.left) + '</span>';
+    renderCand();
+    // 炎色反応は、ほかの試薬を2回試したあと（3回目以降）に使える
+    const locked = t => t.id === 'flame' && c.used.length < 2;
+    $('reagents').innerHTML = ION_TESTS.map(t => `<button class="reagent px${c.used.includes(t.id) ? ' done' : ''}" type="button" data-t="${t.id}"${c.left <= 0 || c.done || c.used.includes(t.id) || locked(t) ? ' disabled' : ''}>${t.name}${locked(t) ? '<br><small>3回目から使える</small>' : ''}</button>`).join('');
+    $('anaNote').innerHTML = c.used.length ? c.used.map(id => { const t = ION_TESTS.find(x => x.id === id); return `<li><b>${t.name}</b>：${anaText(c.set, t)}</li>`; }).join('') : '<li style="list-style:none;margin-left:-1.4em;color:var(--muted)">まだ何も試していない。</li>';
+  }
+  function anaTest(id) {
+    const c = anaCur, t = ION_TESTS.find(x => x.id === id);
+    if (!c || c.done || c.left <= 0 || c.used.includes(id) || (id === 'flame' && c.used.length < 2)) return;
+    c.used.push(id); c.left--;
+    scene.ana.tubes.push({ ...anaTube(c.set, t), name: t.name });
+    const txt = anaText(c.set, t);
+    say('doc', `${t.kind === 'flame' ? '白金線に試料をつけて、炎に入れてみるぞ。' : `少し取り分けて、${t.name.replace(' → 熱湯', 'を加え、熱湯をそそいで')}${t.kind === 'hot' ? 'みるぞ。' : 'を加えてみるぞ。'}`}……${txt}ぞ。${c.left === 0 ? 'もう試料が残っておらん。報告してくれんか。' : ''}`);
+    refocusReagent = id;
+    renderAna();
+    const next = [...document.querySelectorAll('#reagents .reagent:not([disabled])')];
+    (c.left === 0 ? $('anaReportBtn') : next[0] || $('anaReportBtn')).focus({ preventScroll: true });
+  }
+  let refocusReagent = null;
+  function anaOpenReport() {
+    const c = anaCur; if (!c || c.done) return;
+    $('anaTest').hidden = true; $('anaReportRow').hidden = true; $('anaReport').hidden = false;
+    $('anaReportHelp').textContent = LEVELS[level].n === 1 ? '入っていると思う金属イオンを、1つ選んで報告しよう。' : `入っていると思う金属イオンを、${LEVELS[level].n}つ選んで報告しよう（${LEVELS[level].n}つまで選べる）。`;
+    $('ionOpts').innerHTML = IONS.map(i => `<button class="ion px" type="button" data-ion="${i.id}" aria-pressed="${c.report.has(i.id)}">${ionFmt(i.id)}<small>${i.name}</small></button>`).join('');
+    syncIonOpts();
+    $('anaBackBtn').hidden = c.left <= 0;
+    firstFocus();
+  }
+  function anaSubmit() {
+    const c = anaCur; if (!c || c.done || !c.report.size) return;
+    c.done = true;
+    const truth = [...c.set].sort(), rep = [...c.report].sort();
+    const ok = truth.join() === rep.join();
+    const names = ids => ids.map(ionFmt).join(' と ');
+    c.ok = ok; anaLog.push(c);
+    // 記録
+    c.isNew = c.set.filter(id => !ionSeen[id]);
+    c.set.forEach(id => { const e = ionSeen[id] || { c: 0, p: 0 }; e.c++; if (ok) e.p++; ionSeen[id] = e; });
+    store.set('shiyaku.ionSeen', ionSeen);
+    $('anaReport').hidden = true; $('anaFb').hidden = false;
+    const v = $('anaVerdict');
+    let line;
+    if (ok) {
+      v.className = 'verdict ok'; v.textContent = '見事な分析じゃ！';
+      line = `どれ、わしも確かめてみよう……うむ、たしかに ${names(truth)} じゃ！ 見事な分析じゃ。`;
+      scene.fx = { x: 128, y: 60, ok: true, until: performance.now() + 1600 };
+    } else {
+      life--; renderLife(true);
+      v.className = 'verdict ng'; v.textContent = '報告がちがっていたぞ（ライフ −1）';
+      // 見分けられたはずの試薬を探す（試したのに見落とした → 試していない、の順）
+      const diff = ION_TESTS.filter(t => anaKey(c.set, t) !== anaKey(c.report.size ? [...c.report] : [], t));
+      const seenDiff = diff.find(t => c.used.includes(t.id)), newDiff = diff.find(t => !c.used.includes(t.id));
+      const hint = seenDiff ? `「${seenDiff.name}」の結果を、もう一度よく見るんじゃ。` : newDiff ? `「${newDiff.name}」を試せば、見分けられたはずじゃ。` : '';
+      c.hint = hint;
+      scene.fx = { x: 128, y: 60, ok: false, until: performance.now() + 1400 };
+      if (life > 0) {   // 答えはまだ見せずに、リトライか、答えを見るかを選ぶ
+        line = `どれ、わしも確かめてみよう……むむ、きみの報告とは結果が合わんようじゃ。${hint}もう一度調べてみるか？`;
+        say('doc', line);
+        $('anaAns').innerHTML = `きみの報告：${names(rep)}<br><small>博士「${line}」</small>`;
+        $('anaWhy').innerHTML = '';
+        $('anaRetryRow').hidden = false; $('anaNextRow').hidden = true;
+        $('anaFb').scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+        $('anaRetryBtn').focus({ preventScroll: true });
+        return;
+      }
+      line = `どれ、わしも確かめてみよう……むむ、これは ${names(truth)} じゃったぞ。${hint}`;
+    }
+    say('doc', line);
+    anaShowAnswer(line);
+  }
+  // 答え（入っていたイオンと決め手）を見せて、次へ進めるようにする
+  function anaShowAnswer(line) {
+    const c = anaCur, names = ids => ids.map(ionFmt).join(' と ');
+    const truth = [...c.set].sort(), rep = [...c.report].sort();
+    $('anaAns').innerHTML = `入っていたイオン：<b>${names(truth)}</b>　／　きみの報告：${names(rep)}${c.retries ? `（リトライ ${c.retries} 回）` : ''}<br><small>博士「${line}」</small>`;
+    $('anaWhy').innerHTML = truth.map(id => `<li><b>${ionFmt(id)}（${ionById(id).name}）</b>：${ionById(id).key}</li>`).join('');
+    $('anaRetryRow').hidden = true; $('anaNextRow').hidden = false;
+    $('anaNextBtn').textContent = life <= 0 || anaK + 1 >= anaPlan ? '結果を見る ▶' : 'つぎの試料へ ▶';
+    $('anaFb').scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+    $('anaNextBtn').focus({ preventScroll: true });
+  }
+  // 同じ試料をもう一度（試料の番号は進めない）
+  function anaRetry() {
+    const c = anaCur; if (!c || !c.done || c.ok || life <= 0) return;
+    anaLog.pop();
+    c.retries = (c.retries || 0) + 1;
+    c.used = []; c.left = LEVELS[level].tries; c.report = new Set(); c.done = false; c.ok = undefined;
+    scene.ana.tubes = []; scene.fx = null;
+    $('anaFb').hidden = true; $('anaRetryRow').hidden = true; $('anaNextRow').hidden = false;
+    $('anaTest').hidden = false; $('anaReportRow').hidden = false; $('anaReport').hidden = true;
+    say('doc', 'よし、もう一度じゃ。新しく試料を取り分けて、調べなおしてみよう。');
+    renderAna();
+    firstFocus();
+  }
+  function anaFinish() {
+    step = 'end'; scene.ana = null; $('meta').hidden = true;
+    const good = anaLog.filter(l => l.ok).length, done = life > 0;
+    $('endScreen').hidden = false;
+    $('endBig').textContent = done ? `${good} / ${anaPlan} 正解` : 'ライフが なくなった…';
+    const rate = good / anaPlan;
+    $('endRank').innerHTML = done ? `きょうの称号は <b>${rate >= 1 ? '分析の名人' : rate >= .7 ? '腕ききの分析者' : rate >= .4 ? '見習い分析者' : '分析の入門者'}</b>` : `${anaLog.length} 個目で 分析中止`;
+    $('endMsg').textContent = done ? '博士「沈殿の色と、過剰に加えたときのようすが決め手じゃ。」' : '博士「きょうはここまでじゃ。金属イオンのページで見直しておくんじゃぞ。」';
+    $('talk').hidden = true; speaker = null;
+    $('review').innerHTML = anaLog.map((l, i) => `<li><span class="t"><span class="mk ${l.ok ? 'ok' : 'ng'}">${l.ok ? '◯' : '✕'}</span>試料 ${i + 1}：${[...l.set].map(ionFmt).join('・')}${l.isNew.length ? '<span class="badge new">NEW</span>' : ''}</span>` +
+      `<small>${l.retries ? `リトライ ${l.retries} 回。` : ''}${l.ok ? '使った試薬：' + l.used.map(id => ION_TESTS.find(t => t.id === id).name).join('、') : 'きみの報告：' + ([...l.report].map(ionFmt).join('・') || 'なし')}</small></li>`).join('');
+    const newN = new Set(anaLog.flatMap(l => l.isNew)).size;
+    $('reviewNote').hidden = !newN;
+    $('reviewNote').innerHTML = newN ? `📓 物質ノートの「金属イオン」に、新しく ${newN} 種のイオンを記録したぞ（${IONS.filter(i => ionSeen[i.id]).length} / ${IONS.length} 種）。` : '';
+    show(['reviewPanel']);
+    firstFocus();
+  }
+  $('anaCand').addEventListener('click', e => {
+    const b = e.target.closest('[data-x]'); if (!b || !anaCur) return;
+    const id = b.dataset.x; if (anaCur.crossed.has(id)) anaCur.crossed.delete(id); else anaCur.crossed.add(id);
+    renderCand(); const nb = $('anaCand').querySelector(`[data-x="${id}"]`); if (nb) nb.focus({ preventScroll: true });
+  });
+  $('reagents').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (b && !b.disabled) anaTest(b.dataset.t); });
+  $('anaReportBtn').addEventListener('click', anaOpenReport);
+  $('anaBackBtn').addEventListener('click', () => { $('anaTest').hidden = false; $('anaReportRow').hidden = false; $('anaReport').hidden = true; firstFocus(); });
+  $('ionOpts').addEventListener('click', e => {
+    const b = e.target.closest('[data-ion]'); if (!b || !anaCur || anaCur.done) return;
+    const id = b.dataset.ion, n = LEVELS[level].n, r = anaCur.report;
+    if (r.has(id)) r.delete(id);
+    else if (n === 1) { r.clear(); r.add(id); }          // 初級は1つだけ：選びなおすと入れかわる
+    else if (r.size < n) r.add(id);                       // 中級・上級は、決められた数まで
+    syncIonOpts();
+    b.focus({ preventScroll: true });
+  });
+  // 報告のボタン：決められた数まで選べる。数がそろったら「これで報告する」が押せる
+  function syncIonOpts() {
+    const n = LEVELS[level].n, r = anaCur.report, full = r.size >= n && n > 1;
+    document.querySelectorAll('#ionOpts .ion').forEach(x => {
+      const on = r.has(x.dataset.ion);
+      x.setAttribute('aria-pressed', String(on));
+      x.classList.toggle('dim', full && !on);
+      x.setAttribute('aria-disabled', String(full && !on));
+    });
+    $('anaSubmitBtn').disabled = r.size !== n;
+    $('anaSubmitBtn').textContent = r.size === n ? 'これで報告する' : `あと ${n - r.size} つ選ぼう`;
+  }
+  $('anaSubmitBtn').addEventListener('click', anaSubmit);
+  $('anaNextBtn').addEventListener('click', () => { anaK++; anaNext(); });
+  $('anaRetryBtn').addEventListener('click', anaRetry);
+  $('anaRevealBtn').addEventListener('click', () => { const c = anaCur, names = ids => ids.map(ionFmt).join(' と '); const line = `これは ${names([...c.set].sort())} じゃったぞ。${c.hint || ''}`; say('doc', line); anaShowAnswer(line); });
   // ---------- キーボードだけで遊ぶ ----------
   // ↑↓←→：画面上の近いボタンへ移動　Enter／Space：決定　Backspace／Delete：選んだわくを空にする　Esc：やめる
   // 閉じた <details> の中身は、位置があっても見えていないので除く（自分の summary は別）
@@ -2185,6 +2582,7 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
     if (step === 'pick') return picked ? pickFirst('#toLabelBtn') : pickFirst('#bottles .bottle');
     if (step === 'label') return $('pasteRow').hidden ? pickFirst('#nextBtn') : pickFirst('#props .prop');
     if (step === 'exp') return ex && ex.done ? pickFirst('#expNextBtn') : (pickFirst('#tray .tile') || pickFirst('#reactBtn'));
+    if (step === 'ana') return !$('anaFb').hidden ? (pickFirst('#anaNextBtn') || pickFirst('#anaRetryBtn')) : !$('anaReport').hidden ? pickFirst('#ionOpts .ion') : (pickFirst('#reagents .reagent') || pickFirst('#anaReportBtn'));
     if (step === 'end') return pickFirst('#retryBtn');
   }
 
@@ -2209,7 +2607,20 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
         <details><summary>反応式を見る（${eqs.length}）</summary><ul class="lp-eq">${eqs.map(x => `<li>${eqFull(x)}<small>${x.tag ? '［' + x.tag + '］' : ''}${x.note}</small></li>`).join('')}</ul></details>
         </div></details>`;
     };
-    if (listGroup === 'bm') {
+    if (listGroup === 'ion') {
+      const n = IONS.filter(i => ionSeen[i.id]).length, pf = IONS.filter(i => ionSeen[i.id] && ionSeen[i.id].p).length;
+      const prog = `<div class="nb-prog px"><div class="row"><span class="big">記録した金属イオン　${n} / ${IONS.length} 種</span><span>${Math.round(n / IONS.length * 100)}%</span></div>
+        <div class="nb-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${IONS.length}" aria-valuenow="${n}"><i style="width:${n / IONS.length * 100}%"></i></div>
+        <small>👑＝正しく見抜けたイオン（${pf} 種）。まだ出会っていないイオンは、🧪 系統分析で出会うとノートに記録されます。</small></div>`;
+      $('listBody').innerHTML = prog + `<h2 class="lp-grp">🧪 金属イオン（${n} / ${IONS.length} 種）</h2><div class="lp-list">` + IONS.map((ion, i) => {
+        const no = `<span class="no">No.${String(i + 1).padStart(2, '0')}</span>`, e = ionSeen[ion.id];
+        if (!e) return `<div class="lp-card lp-locked px" aria-label="まだ記録されていないイオン">${no}<span class="q">？？？</span><small>まだ出会っていないイオン</small></div>`;
+        const col = sampleColor([ion.id]);
+        return `<details class="lp-card px"><summary>${no}<span>${ion.name}</span>${ionFmt(ion.id)}<span class="badges">${e.p ? '<span class="crown" role="img" aria-label="正しく見抜いた" title="正しく見抜いた">👑</span>' : ''}</span></summary>
+          <div class="lp-body"><p class="lp-where">水溶液の色：${colText(col)}</p><p style="margin:0">${ion.key}</p>
+          <table class="ion-tbl"><tbody>${ION_TESTS.map(t => `<tr><th>${t.name}</th><td>${anaText([ion.id], t)}</td></tr>`).join('')}</tbody></table></div></details>`;
+      }).join('') + '</div>';
+    } else if (listGroup === 'bm') {
       const list = poolOf('bm');
       $('listBody').innerHTML = `<h2 class="lp-grp"><i class="fu" aria-hidden="true"></i>付せん（${list.length}種）</h2>` + (list.length
         ? `<div class="lp-tools" style="margin:8px 0 10px"><button class="btn small px" id="playBmBtn" type="button">付せんの試薬で遊ぶ</button></div><div class="lp-list">${list.map(card).join('')}</div>`
