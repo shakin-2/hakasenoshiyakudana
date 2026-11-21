@@ -1930,6 +1930,11 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
     });
     return t.replace(/(^|[^\^\d])\+(?!\s)/g, '$1+ ').replace(/([^\s])([→⇄])/g, '$1 $2').replace(/([→⇄])(?=\S)/g, '$1 ').trim();
   }
+  // 生徒の答えを入れた式と、正しい式が、左辺・右辺それぞれ同じ項の集まりかどうか
+  function sameEquation(rx, user) {
+    const sides = vals => eqText({ ...rx, ans: vals }).split(/\s[→⇄]\s/).map(side => side.split(' + ').map(x => x.trim()).sort().join(' + '));
+    return sides(user).join(' = ') === sides(rx.ans).join(' = ');
+  }
   // 穴の位置を毎回ランダムに選びなおす（係数の穴・化学式の穴の数は元の問題と同じ）
   function randomizeBlanks(rx) {
     const words = eqText(rx).split(/\s+/);
@@ -2028,7 +2033,8 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
       b.setAttribute('aria-label', (coef ? '係数のわく' : '化学式のわく') + (ti == null ? '（から）' : `：${ex.tiles[ti]}`));
       if (ex.done) { b.classList.add(ex.marks[p] ? 'ok' : 'ng'); b.disabled = true; }
       else if (p === ex.active) b.classList.add('on');
-      b.addEventListener('click', () => { if (ex.done) return; ex.slots[p] = null; ex.active = p; refocus = { slot: p }; renderEq(); });
+      // わくをタップ（クリック）するたびに、候補のタイルを順に入れる（最後の次は空にもどる）
+      b.addEventListener('click', () => { if (ex.done) return; cycleSlot(p); });
       // キーボード：わくの上で Enter（Space）を押すたびに、候補のタイルを順に入れる（最後の次は空にもどる）
       b.addEventListener('keydown', e => { if (e.key !== 'Enter' && e.key !== ' ') return; e.preventDefault(); e.stopPropagation(); if (!ex.done) cycleSlot(p); });
       b.addEventListener('focus', () => { if (ex.done || ex.active === p) return; ex.active = p; document.querySelectorAll('#eq .slot').forEach(x => x.classList.toggle('on', +x.dataset.slot === p)); });
@@ -2135,8 +2141,10 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
   function react() {
     if (ex.done || ex.slots.some(v => v == null)) return;
     const user = ex.slots.map(i => ex.tiles[i]), ans = ex.rx.ans;
-    ex.marks = user.map((u, i) => u === ans[i]);
-    const ok = ex.marks.every(Boolean);
+    // 反応式として同じなら正解（左辺・右辺の中で、項の順番がちがってもよい）
+    const same = sameEquation(ex.rx, user);
+    ex.marks = same ? user.map(() => true) : user.map((u, i) => u === ans[i]);
+    const ok = same;
     ex.done = true;
     const chain = ex.pick.chain, lastStep = !chain || ex.ci === chain.length - 1;
     // 何段階かの実験は、どこかでまちがえても減るライフは1つだけ
@@ -2151,8 +2159,9 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
     ex.rx.parts.forEach((p, i) => {
       if (typeof p === 'string') { full += fmt(p.trim()) + ' '; return; }
       const nx = ex.rx.parts[i + 1];
-      const coef = /^\d+$/.test(ans[p]) && (typeof nx === 'number' || (typeof nx === 'string' && !/^\s*[→⇄+]/.test(nx)));
-      full += `<u>${fmt(ans[p])}</u>` + (coef ? '' : ' ');
+      const show = ok ? user : ans;   // 正解なら、生徒の並べ方のまま答えを表示
+      const coef = /^\d+$/.test(show[p]) && (typeof nx === 'number' || (typeof nx === 'string' && !/^\s*[→⇄+]/.test(nx)));
+      full += `<u>${fmt(show[p])}</u>` + (coef ? '' : ' ');
     });
     full = full.trim();
     $('expAns').innerHTML = full;
