@@ -409,7 +409,7 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
         <button class="opt px" type="button" data-v="5" aria-pressed="false"><b><span style="color:var(--ng)">♥</span> 5</b></button>
         <button class="opt px" type="button" data-v="7" aria-pressed="false"><b><span style="color:var(--ng)">♥</span> 7</b></button>
       </div>
-      <p class="keys-help">キーボードでも遊べます：<kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> 選ぶ　<kbd>Enter</kbd> 決定　<kbd>Backspace</kbd> わくを空にする　反応式のわくでは <kbd>Enter</kbd> で候補を順に入れる　<kbd>Esc</kbd> やめる</p>
+      <p class="keys-help">キーボードでも遊べます：<kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> 選ぶ　<kbd>Enter</kbd> 決定　<kbd>Backspace</kbd> わくを空にする　反応式のわくでは <kbd>Enter</kbd> で候補を順に入れる（係数は数字キーでも入れられる）　<kbd>Esc</kbd> やめる</p>
       <div class="row-end stick"><button class="btn px" id="startBtn" type="button">研究室に入る</button></div>
     </section>
 
@@ -1814,6 +1814,7 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
       b.addEventListener('click', () => pick(i));
       box.append(b);
     });
+    box.querySelectorAll('.bottle').forEach(fitBottle);
     $('pickFb').hidden = true;
     firstFocus();
   }
@@ -1993,6 +1994,25 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
     if (empty >= 0) ex.active = empty;
     renderEq();
   }
+  // 数字キーで係数を入れる：選択肢のタイルにある数字だけ入れられる（12 や 14 のような2けたも、続けて打てば入る）
+  let numBuf = '', numAt = 0;
+  function typeCoef(d) {
+    const now = performance.now();
+    numBuf = (now - numAt < 900 ? numBuf : '') + d; numAt = now;
+    const fe = document.activeElement, fp = fe && fe.dataset && fe.dataset.slot != null ? +fe.dataset.slot : null;
+    // 入れる先：フォーカスしている［　］→ 空いている最初の［　］→ いま選択中のわく（係数なら）
+    const firstEmpty = ex.slots.findIndex((v, i) => v == null && isCoef(i));
+    let p = fp != null && isCoef(fp) ? fp : firstEmpty >= 0 ? firstEmpty : isCoef(ex.active) ? ex.active : -1;
+    if (p < 0 || p == null) { eqMsg('数字が入る［　］のわくがないぞ。'); return; }
+    const free = i => tileIsNum(i) && (!ex.slots.includes(i) || ex.slots[p] === i);
+    const find = txt => ex.tiles.findIndex((t, i) => t === txt && free(i));
+    let ti = find(numBuf);
+    if (ti < 0 && numBuf.length > 1) { numBuf = d; ti = find(d); }   // 2けたにならなければ、いま打った数字だけで考える
+    const longer = ex.tiles.some((t, i) => free(i) && t.length > numBuf.length && t.startsWith(numBuf));
+    if (ti < 0) { if (!longer) { eqMsg(`「${numBuf}」のタイルはないぞ。`); numBuf = ''; } return; }
+    eqMsg('');
+    ex.slots[p] = ti; ex.active = p; refocus = { slot: p }; renderEq();
+  }
   function cycleSlot(p) {
     const coef = isCoef(p);
     // 同じ文字のタイル（「2」が2枚など）は1回だけ出す
@@ -2012,6 +2032,14 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
     let size = parseFloat(getComputedStyle(el).fontSize);
     while (el.scrollWidth > el.clientWidth + 1 && size > 10) { size -= 1; el.style.fontSize = size + 'px'; }
   }
+  // 試薬を取る画面の選択肢：化学式がボタンからはみ出すときだけ、字を小さくする（さらし粉など）
+  function fitBottle(b) {
+    const f = b.querySelector('.f'); if (!f) return;
+    f.style.fontSize = '';
+    let size = parseFloat(getComputedStyle(f).fontSize);
+    while (b.scrollWidth > b.clientWidth + 1 && size > 10) { size -= 1; f.style.fontSize = size + 'px'; }
+  }
+  window.addEventListener('resize', () => document.querySelectorAll('#bottles .bottle').forEach(fitBottle));
   function renderEq() {
     const eq = $('eq'); eq.innerHTML = '';
     let glue = null;   // 係数のわくは、すぐ後ろの化学式（わく）と同じ行にまとめる
@@ -2698,6 +2726,7 @@ button:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
       return;
     }
     if (k === 'Enter' && !(document.activeElement && document.activeElement.tagName === 'BUTTON')) { firstFocus(); e.preventDefault(); return; }
+    if (step === 'exp' && ex && !ex.done && /^[0-9]$/.test(k)) { e.preventDefault(); typeCoef(k); return; }
     if (step === 'pick' && !picked && n >= 1 && n <= 4) { pick(n - 1); e.preventDefault(); }
     else if (step === 'label' && !$('pasteRow').hidden && n >= 1 && n <= $('props').children.length) { $('props').children[n - 1].click(); e.preventDefault(); }
   });
